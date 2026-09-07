@@ -1,0 +1,17 @@
+# Raw source documents (closing statements, ALTA settlements, QuickBooks
+# exports, VARE underwriting files, PM statements) — these are Patrick's
+# confidential financial/legal documents used only by the one-off
+# import/seed scripts to populate Turso. The running app reads from Turso
+# at request time and never touches this folder, so it has no reason to be
+# uploaded to Vercel's servers.
+data/raw
+data/processed
+
+# Local-only tooling not needed at runtime
+scripts
+
+# Local sqlite db (dev only — production reads from Turso via env vars)
+dev.db
+dev.db-shm
+dev.db-wal
+dev.db-journal

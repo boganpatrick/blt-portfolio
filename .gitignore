@@ -39,3 +39,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local sqlite db (dev only — production reads from Turso)
+dev.db
+dev.db-shm
+dev.db-wal
+dev.db-journal
+
+# Raw source documents (closing statements, ALTA settlements, QuickBooks
+# exports, VARE underwriting files, PM statements) and one-off deliverables
+# built from them — Patrick's confidential financial/legal documents, used
+# only locally by the one-off import/seed scripts to populate Turso. Never
+# push these to GitHub.
+data/raw
+data/processed
+deliverables

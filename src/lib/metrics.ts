@@ -1,0 +1,255 @@
+import { db } from "@/db/client";
+import {
+  pmReportLineItems, pmReports, normalizedCategories, properties, loans,
+  entities, entityOwnerships, owners,
+} from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+// ---------- Current rent, derived from PM statement "Rent Income" lines ----------
+//
+// Why not pm_report_line_items.date: the PM statement PDFs format rent lines
+// like "Rent - RENT (01-2026) $620.00" — a month/year tag only, no day — so
+// the parser's date regex (which only matches full MM-DD-YYYY) leaves .date
+// null for nearly every rent row. Utility lines do carry real dates because
+// their source lines use date ranges. So "most recent" has to come from the
+// parent statement's period_end instead, which is always populated.
+//
+// Why not just take each (propertyId, propertyLabel) group's own latest
+// row and sum those across labels: a property's label text can change over
+// time (e.g. an early lump-sum annual label later superseded by per-unit
+// monthly labels), and that superseded label still has its own "latest"
+// occurrence somewhere in the past — summing every label's own latest row
+// would wrongly add that stale figure back in every time. The correct
+// notion of "current" is per-property, not per-label: find the single most
+// recent period_end among all of a property's Rent Income rows, then sum
+// only the rows at exactly that period. A label that stopped appearing
+// (superseded, or a vacant unit skipped from that statement) simply isn't
+// part of the most recent period and drops out on its own. This also
+// naturally handles 1139 Division St, where two physically distinct units
+// share the exact same label string within one statement — both rows share
+// the same periodEnd and both get summed.
+export type CurrentRent = { amount: number; asOf: string; byLabel: { label: string; amount: number }[] };
+
+export async function getCurrentRentDetailByProperty(): Promise<Record<string, CurrentRent>> {
+  const rows = await db
+    .select({
+      propertyId: pmReportLineItems.propertyId,
+      propertyLabel: pmReportLineItems.propertyLabel,
+      periodEnd: pmReports.periodEnd,
+      amount: pmReportLineItems.amount,
+    })
+    .from(pmReportLineItems)
+    .innerJoin(normalizedCategories, eq(pmReportLineItems.normalizedCategoryId, normalizedCategories.id))
+    .innerJoin(pmReports, eq(pmReportLineItems.reportId, pmReports.id))
+    .where(eq(normalizedCategories.name, "Rent Income"));
+
+  type Row = { propertyId: string | null; propertyLabel: string | null; periodEnd: string; amount: number };
+  const byProperty: Record<string, Row[]> = {};
+  for (const r of rows as Row[]) {
+    if (!r.propertyId) continue;
+    (byProperty[r.propertyId] ??= []).push(r);
+  }
+
+  const result: Record<string, CurrentRent> = {};
+  for (const [propertyId, group] of Object.entries(byProperty)) {
+    const latestPeriod = group.reduce((max, r) => (r.periodEnd > max ? r.periodEnd : max), group[0].periodEnd);
+    const current = group.filter((r) => r.periodEnd === latestPeriod);
+    const amount = current.reduce((sum, r) => sum + r.amount, 0);
+    const byLabel: Record<string, number> = {};
+    for (const r of current) {
+      const label = r.propertyLabel ?? "(unlabeled)";
+      byLabel[label] = (byLabel[label] ?? 0) + r.amount;
+    }
+    result[propertyId] = {
+      amount,
+      asOf: latestPeriod,
+      byLabel: Object.entries(byLabel).map(([label, amount]) => ({ label, amount })),
+    };
+  }
+  return result;
+}
+
+export async function getCurrentRentByProperty(): Promise<Record<string, { amount: number; asOf: string }>> {
+  const detail = await getCurrentRentDetailByProperty();
+  const result: Record<string, { amount: number; asOf: string }> = {};
+  for (const [propertyId, r] of Object.entries(detail)) {
+    result[propertyId] = { amount: r.amount, asOf: r.asOf };
+  }
+  return result;
+}
+
+// Decides which of the three rent sources (PM statement, lease, VARE
+// estimate) to trust as "current monthly rent," and — this is the part
+// that isn't just priority order — guards against a specific PM-statement
+// failure mode: a tenant who moves in mid-month gets a prorated first
+// rent payment (e.g. 1339 Division St's tenant moved in 2026-07-22, so
+// that month's PM-reported "rent" was $591.78 against an actual $1,800
+// lease). If the most recent PM statement period is the same calendar
+// month a current lease started, that PM figure is almost certainly a
+// proration, not the steady-state rent, so the lease's full rent wins
+// instead. Falls back through lease -> PM (even if possibly prorated,
+// better than nothing) -> VARE estimate -> null.
+export function resolveCurrentRent(opts: {
+  pmRent: { amount: number; asOf: string } | undefined;
+  leaseRent: number | null;
+  mostRecentLeaseStart: string | null;
+  estimateRent: number | null;
+}): { amount: number | null; source: "pm" | "lease" | "estimate" | null } {
+  const { pmRent, leaseRent, mostRecentLeaseStart, estimateRent } = opts;
+  const pmLooksProrated = !!(pmRent && mostRecentLeaseStart && pmRent.asOf.slice(0, 7) === mostRecentLeaseStart.slice(0, 7));
+
+  if (pmRent && !pmLooksProrated) return { amount: pmRent.amount, source: "pm" };
+  if (leaseRent !== null) return { amount: leaseRent, source: "lease" };
+  if (pmRent) return { amount: pmRent.amount, source: "pm" };
+  if (estimateRent !== null) return { amount: estimateRent, source: "estimate" };
+  return { amount: null, source: null };
+}
+
+// ---------- NOI, per property, from actual PM statement activity ----------
+//
+// Income and Operating Expense groups come straight from
+// normalized_categories.group; Capex and Adjustment (owner contributions/
+// draws) are deliberately excluded from NOI. Because most entities only
+// have a handful of months of statements on file so far, this returns the
+// actual monthly average over however many distinct statement periods exist
+// per property, plus that month count, so callers can annualize and label
+// the result honestly ("annualized from N months of actual data") instead
+// of implying a full trailing-twelve-month figure.
+export async function getNoiByProperty(): Promise<Record<string, { monthlyAvg: number; months: number }>> {
+  const rows = await db
+    .select({
+      propertyId: pmReportLineItems.propertyId,
+      group: normalizedCategories.group,
+      amount: pmReportLineItems.amount,
+      periodEnd: pmReports.periodEnd,
+    })
+    .from(pmReportLineItems)
+    .innerJoin(normalizedCategories, eq(pmReportLineItems.normalizedCategoryId, normalizedCategories.id))
+    .innerJoin(pmReports, eq(pmReportLineItems.reportId, pmReports.id));
+
+  type Row = { propertyId: string | null; group: string; amount: number; periodEnd: string };
+  const byProperty: Record<string, { net: number; periods: Set<string> }> = {};
+  for (const r of rows as Row[]) {
+    if (!r.propertyId) continue;
+    if (r.group !== "Income" && r.group !== "Operating Expense") continue;
+    if (!byProperty[r.propertyId]) byProperty[r.propertyId] = { net: 0, periods: new Set() };
+    byProperty[r.propertyId].net += r.amount; // income positive, opex negative — already NOI-signed
+    byProperty[r.propertyId].periods.add(r.periodEnd);
+  }
+
+  const result: Record<string, { monthlyAvg: number; months: number }> = {};
+  for (const [propertyId, { net, periods }] of Object.entries(byProperty)) {
+    const months = Math.max(periods.size, 1);
+    result[propertyId] = { monthlyAvg: net / months, months };
+  }
+  return result;
+}
+
+export function monthlyPrincipalAndInterest(loan: typeof loans.$inferSelect | undefined): { value: number; known: boolean } {
+  if (!loan || !loan.currentBalance) return { value: 0, known: true };
+  if (!loan.originalAmount || !loan.termMonths || loan.rate === null || loan.rate === undefined) {
+    return { value: 0, known: false };
+  }
+  const n = loan.termMonths;
+  const r = loan.rate / 12;
+  const value = r === 0 ? loan.originalAmount / n : (loan.originalAmount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  return { value, known: true };
+}
+
+// ---------- Property-level performance metrics ----------
+//
+// cap rate = annualized NOI / current value
+// DSCR = annualized NOI / annual debt service (P&I + escrows; null if PITI unknown)
+// cash-on-cash = annualized (NOI - debt service) / equity invested to date
+//   (purchase price + rehab spent, a practical stand-in for "cash in" since
+//   most properties here don't have a clean all-in cash-invested figure yet)
+// appreciation = current value / purchase price - 1
+export type PropertyMetrics = {
+  noiMonthlyAvg: number | null;
+  noiMonths: number;
+  capRate: number | null;
+  dscr: number | null;
+  cashOnCash: number | null;
+  appreciationPct: number | null;
+};
+
+export function computePropertyMetrics(opts: {
+  property: typeof properties.$inferSelect;
+  loan: typeof loans.$inferSelect | undefined;
+  noi: { monthlyAvg: number; months: number } | undefined;
+}): PropertyMetrics {
+  const { property, loan, noi } = opts;
+  const annualNoi = noi ? noi.monthlyAvg * 12 : null;
+  const value = property.currentEstValue ?? null;
+
+  const capRate = annualNoi !== null && value ? annualNoi / value : null;
+
+  const pAndI = monthlyPrincipalAndInterest(loan);
+  const annualDebtService = pAndI.known
+    ? (pAndI.value + (loan?.monthlyTaxEscrow ?? 0) + (loan?.monthlyInsuranceEscrow ?? 0)) * 12
+    : null;
+  const dscr = annualNoi !== null && annualDebtService ? annualNoi / annualDebtService : null;
+
+  const cashInvested = (property.purchasePrice ?? 0) + (property.rehabSpentToDate ?? 0);
+  const cashOnCash = annualNoi !== null && annualDebtService !== null && cashInvested > 0
+    ? (annualNoi - annualDebtService) / cashInvested
+    : null;
+
+  const appreciationPct = property.purchasePrice && value
+    ? value / property.purchasePrice - 1
+    : null;
+
+  return {
+    noiMonthlyAvg: noi?.monthlyAvg ?? null,
+    noiMonths: noi?.months ?? 0,
+    capRate,
+    dscr,
+    cashOnCash,
+    appreciationPct,
+  };
+}
+
+// ---------- Entity ownership splits (B2 Partners 50/50, etc.) ----------
+
+export async function getCurrentOwnershipsByEntity(): Promise<Record<string, { ownerId: string; ownerName: string; percent: number; isHousehold: boolean }[]>> {
+  const rows = await db
+    .select({
+      entityId: entityOwnerships.entityId,
+      ownerId: entityOwnerships.ownerId,
+      ownerName: owners.name,
+      percent: entityOwnerships.percent,
+      isHousehold: owners.isHousehold,
+      endDate: entityOwnerships.endDate,
+    })
+    .from(entityOwnerships)
+    .innerJoin(owners, eq(entityOwnerships.ownerId, owners.id));
+
+  const result: Record<string, { ownerId: string; ownerName: string; percent: number; isHousehold: boolean }[]> = {};
+  for (const r of rows) {
+    if (r.endDate) continue;
+    (result[r.entityId] ??= []).push({ ownerId: r.ownerId, ownerName: r.ownerName, percent: r.percent, isHousehold: r.isHousehold });
+  }
+  return result;
+}
+
+// The household's (Patrick & Gina's) ownership % of a given entity — 100%
+// for every entity except B2 Partners LLC, where Mike Bogan holds the
+// other 50%. Looked up from entity_ownerships/owners.is_household rather
+// than hardcoded, so it stays correct if the split ever changes. An entity
+// with no ownership rows on file at all (shouldn't normally happen, but
+// "Personal" has none since it's inherently 100% Patrick & Gina, not held
+// through an LLC with recorded partners) defaults to 100%.
+export async function getHouseholdPctByEntity(): Promise<Record<string, number>> {
+  const byEntity = await getCurrentOwnershipsByEntity();
+  const result: Record<string, number> = {};
+  for (const [entityId, ownerships] of Object.entries(byEntity)) {
+    const household = ownerships.find((o) => o.isHousehold);
+    result[entityId] = household ? household.percent : 100;
+  }
+  return result;
+}
+
+export async function getEntityByName(name: string) {
+  const [e] = await db.select().from(entities).where(eq(entities.name, name));
+  return e;
+}
