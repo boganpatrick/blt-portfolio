@@ -216,7 +216,7 @@ async function main() {
     purchasePrice: 198745, purchaseDate: "2021-06-28",
     rehabBudget: 60000, rehabCompleteDate: "2021-10-01",
     putIntoServiceDate: "2021-10-01",
-    currentEstValue: 264000, currentValueSource: "zillow",
+    currentEstValue: 273800, currentValueSource: "zillow", currentValueAsOf: "2026-09-08", // per Patrick, Zillow value as of today
     notes: "Held personally. Rented under market to Gina's mother. No property manager — self-managed family arrangement.",
   });
 
@@ -246,7 +246,9 @@ async function main() {
     rehabBudget: 35000, rehabCompleteDate: "2025-07-01",
     putIntoServiceDate: "2025-08-01",
     currentEstValue: 152000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
-    notes: "Cash-out refi Aug 2025 for $105k. Original 12/18/2024 acquisition was financed with a short-term construction/bridge loan from Commercial Lender LLC ($97,590 principal, 11.49% interest-only, matured 1/1/2026, per the Metro Title closing package) — paid off by the Aug-2025 DSCR refi already on file. Buyer of record was BLT Washington LLC; Patrick Bogan and Gina Rhineberger guaranteed the loan.",
+    // Full Metro Title closing package (1611_S._Washington_Kokomo_Metro_Title_full_closing_package_20241218.pdf)
+    // read in full 2026-09-08, confirming/expanding the summary already on file.
+    notes: "Cash-out refi Aug 2025 for $105k. Original 12/18/2024 acquisition ($90,000 purchase price confirmed) was financed with a short-term construction/bridge loan from Commercial Lender LLC ($97,590 principal — includes a $25,750 construction holdback disbursed per a draw schedule — 11.49% interest-only, matured 1/1/2026, no prepayment penalty but a 1%-of-principal loan termination fee if any principal was paid after 10/1/2025) — paid off by the Aug-2025 DSCR refi already on file. Buyer of record was BLT Washington LLC; Patrick Bogan and Gina Rhineberger guaranteed the loan (Commercial Guaranty, joint and several) and are also the LLC's members. Seller was the Secretary of Veterans Affairs (a VA-foreclosure/REO property), conveyed via Special Warranty Deed. Title/closing company: Metropolitan Title of Indiana, LLC; loan-closing servicer Elite Commercial Closings, LLC. Cash to close was $23,566.57; no tax or insurance escrow was established at this closing (that came later with the DSCR refi). No known liens or title issues disclosed.",
   });
 
   const wash738 = await addProperty({
@@ -254,7 +256,7 @@ async function main() {
     propertyType: "Duplex 2/1 & 1/1", status: "leased",
     purchasePrice: 100000, purchaseDate: "2025-06-16",
     rehabBudget: 5000, putIntoServiceDate: "2025-06-01",
-    currentEstValue: 111000, currentValueSource: "zillow",
+    currentEstValue: 118100, currentValueSource: "zillow", currentValueAsOf: "2026-09-08", // per Patrick, Zillow value as of today
   });
 
   const mohawk5109 = await addProperty({
@@ -281,21 +283,24 @@ async function main() {
     address: "2000 S Buckeye", city: "Kokomo", state: "IN", zip: "46902",
     propertyType: "SFH 4/1", status: "leased",
     purchasePrice: 95000, purchaseDate: "2025-08-27",
-    currentEstValue: 112000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
+    // Value updated 2026-09-08 per Patrick's Zillow check (was $112,000, Aug25 appraisal).
+    currentEstValue: 147900, currentValueSource: "zillow", currentValueAsOf: "2026-09-08",
   });
 
   const hemlock = await addProperty({
     address: "4076 S 450 E", city: "Hemlock", state: "IN", zip: "46937",
     propertyType: "SFH 3/1", status: "leased",
     purchasePrice: 60000, purchaseDate: "2025-08-27",
-    currentEstValue: 85000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
+    // Value updated 2026-09-08 per Patrick's Zillow check (was $85,000, Aug25 appraisal).
+    currentEstValue: 97600, currentValueSource: "zillow", currentValueAsOf: "2026-09-08",
   });
 
   const kingston = await addProperty({
     address: "225 S Kingston", city: "Kokomo", state: "IN", zip: "46901",
     propertyType: "Triplex 2/1, 1/1, 1/1", status: "leased",
     purchasePrice: 115000, purchaseDate: "2025-10-03",
-    currentEstValue: 120000, currentValueSource: "Sep25 appraisal", currentValueAsOf: "2025-09", // month only — exact day not on file
+    // Value updated 2026-09-08 per Patrick's Zillow check (was $120,000, Sep25 appraisal).
+    currentEstValue: 142800, currentValueSource: "zillow", currentValueAsOf: "2026-09-08",
   });
 
   const division1339 = await addProperty({
@@ -393,10 +398,13 @@ async function main() {
     { propertyId: wash738.id, label: "Unit 1", bedrooms: 2, bathrooms: 1 },
     { propertyId: wash738.id, label: "Unit 2", bedrooms: 1, bathrooms: 1 },
   ]).returning();
-  const [unitKingston1, unitKingston2, unitKingston3] = await db.insert(units).values([
+  // Corrected 2026-09-08 per Patrick: Kingston is a 3-unit building — Unit 1,
+  // Unit 2 East, and Unit 2 West. There is no "Unit 3"; that was a mistaken
+  // label from an earlier pass before Patrick clarified the real layout.
+  const [unitKingston1, unitKingston2East, unitKingston2West] = await db.insert(units).values([
     { propertyId: kingston.id, label: "Unit 1", bedrooms: 2, bathrooms: 1 },
-    { propertyId: kingston.id, label: "Unit 2", bedrooms: 1, bathrooms: 1 },
-    { propertyId: kingston.id, label: "Unit 3", bedrooms: 1, bathrooms: 1 },
+    { propertyId: kingston.id, label: "Unit 2 East", bedrooms: 1, bathrooms: 1 },
+    { propertyId: kingston.id, label: "Unit 2 West", bedrooms: 1, bathrooms: 1 },
   ]).returning();
   await db.insert(units).values([
     { propertyId: buckeyeBldg.id, label: "Apartment", bedrooms: 2, bathrooms: 2 },
@@ -499,19 +507,24 @@ async function main() {
       notes: "Lease on file (225_S_Kingston_Unit_1_lease_20250728.pdf) — matches \"Apt 1\" on PM statements exactly ($675/mo). Very short one-month term and no security deposit; utilities section states tenant has resided there since 8/1/2017, so this looks like a re-signed formality rather than a real new tenancy, and likely converts to month-to-month after 8/31/2025 same as it evidently has been. The signature page on the copy provided appears unsigned by both parties — worth a signed copy if this ever needs to hold up as a real lease.",
     },
     {
-      // Kingston Unit 2 — see notes on the unit-mapping ambiguity below.
-      unitId: unitKingston2.id,
+      // Corrected 2026-09-08: Kingston is Unit 1 / Unit 2 East / Unit 2 West
+      // (no "Unit 3") — Patrick confirmed both this lease and the Unit 2
+      // West one below are current, active tenants, which resolves what
+      // looked like an overlapping-dates puzzle last pass: they were never
+      // the same unit, just two different real units that happen to share
+      // the "Unit 2" prefix. end_date left null since it's ongoing.
+      unitId: unitKingston2East.id,
       tenantName: "Zoie Schori & Mathew Martinez",
-      rentAmount: 580, startDate: "2025-03-01", endDate: "2025-07-31",
-      status: "ended",
-      notes: "Lease on file (255_Kingston_Rd_Apt_2_East.pdf) for \"Apt 2 East\" — ended 7/31/2025, Rhino bond in place of cash deposit.",
+      rentAmount: 580, startDate: "2025-03-01", endDate: undefined,
+      status: "active",
+      notes: "Lease on file (255_Kingston_Rd_Apt_2_East.pdf) for \"Apt 2 East\" — original term ran through 7/31/2025, renewed per Patrick 2026-09-08, now ongoing/month-to-month. Rhino bond in place of cash deposit.",
     },
     {
-      unitId: unitKingston2.id,
+      unitId: unitKingston2West.id,
       tenantName: "Caeley Alexandria Lenn",
       rentAmount: 600, startDate: "2025-02-21", endDate: "2026-02-28",
       status: "active",
-      notes: "Lease on file (225_S_Kingston_Unit_2W_lease_20250220.pdf, labeled \"Unit 2W\" — matched here to \"Apt 2 East\"/Unit 2 since the $600/mo rent matches that unit's current PM statement rent exactly; the \"2W\" vs \"East\" naming is inconsistent across documents and worth Patrick confirming). $1,200 security deposit. Note the lease's own 2/21/2025 start slightly predates the prior tenant's (Zoie Schori & Mathew Martinez) 7/31/2025 end date on paper — likely just a paperwork date quirk during turnover, not a real overlap. Unit 3 (\"Apt 3 West\", $650/mo per PM statement) still has no lease document on file.",
+      notes: "Lease on file (225_S_Kingston_Unit_2W_lease_20250220.pdf) — \"Unit 2W\" in the filename really does mean Unit 2 West, a distinct unit from Unit 2 East (confirmed by Patrick 2026-09-08). $1,200 security deposit.",
     },
     {
       unitId: unitBuckeye2000.id,
