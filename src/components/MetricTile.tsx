@@ -51,9 +51,12 @@ export function MetricTile({
   }
 
   // Has a breakdown — the whole tile is a native disclosure: click (or
-  // Enter/Space when focused) expands it to show the numbers below.
+  // Enter/Space when focused) toggles it. Defaults open (per Patrick,
+  // 2026-09-08 — better for iterative review) but stays a plain
+  // uncontrolled <details> so the browser handles collapse/re-expand on
+  // click with zero JS; `open` here only sets the initial state.
   return (
-    <details className={`group rounded-lg border p-4 ${border}`}>
+    <details open className={`group rounded-lg border p-4 ${border}`}>
       <summary
         title={tooltip}
         className="relative -m-4 cursor-pointer list-none p-4 outline-none marker:hidden [&::-webkit-details-marker]:hidden"
