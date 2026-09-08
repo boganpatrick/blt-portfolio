@@ -6,10 +6,6 @@ type Item = { title: string; detail: string };
 
 const nowNext: Item[] = [
   {
-    title: "Confirm 1611 S. Washington's DSCR refi terms",
-    detail: "1137 Wayne St and 738 S. Washington's loans are now confirmed against real closing packages. 1611 S. Washington's Aug-2025 DSCR refi is still a VARE-underwriting-file figure — the closing doc on file (Metro Title, 12/18/2024) is for the original bridge-loan purchase, a different loan that's since been paid off.",
-  },
-  {
     title: "1339 Division St cash-out refi",
     detail: "In process as of late Aug 2026, expected to close within ~30 days. Once it closes: enter real loan terms, and work out the Mike/Household split transition per the B2 Partners capital stack method.",
   },
