@@ -253,3 +253,20 @@ export async function getEntityByName(name: string) {
   const [e] = await db.select().from(entities).where(eq(entities.name, name));
   return e;
 }
+
+// Shared hover-explainer text for every metric shown as a MetricTile, so
+// the wording stays identical wherever a metric appears (main dashboard,
+// property page, LLC Performance, etc.) instead of drifting between pages.
+export const METRIC_TOOLTIPS = {
+  value: "Current estimated property value, from the most recent appraisal, Zillow estimate, or other source on file.",
+  debt: "Outstanding loan balance as of the most recent mortgage statement on file. Blank means the property was bought in cash.",
+  equity: "Value minus debt.",
+  monthlyRent: "Current monthly rent. Prefers the most recent PM statement rent transaction; falls back to the active lease (\"lease\"), then a VARE underwriting projection (\"est.\") when neither exists yet.",
+  monthlyPiti: "Principal, Interest, Taxes & Insurance — the full monthly mortgage payment including escrowed tax and insurance. \"Partial\" means the loan's rate, term, original amount, or escrow figures aren't fully entered yet.",
+  noi: "Net Operating Income per month — actual rental income minus operating expenses, from PM statement data, averaged over however many months of statements are on file (excludes capital improvements and owner draws/contributions).",
+  capRate: "Capitalization Rate — annualized NOI ÷ current value. The standard way to compare a property's return independent of how it's financed.",
+  cashOnCash: "Annualized (NOI − annual debt service) ÷ cash invested (purchase price + rehab spent to date). Measures return on the actual cash put in, unlike cap rate.",
+  dscr: "Debt Service Coverage Ratio — annualized NOI ÷ annual PITI. Above 1.0 means rental income covers the mortgage payment; lenders typically want 1.2+.",
+  appreciation: "Change in estimated value since purchase, as a percentage of the original purchase price.",
+  purchased: "Purchase price and closing date.",
+} as const;

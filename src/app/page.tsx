@@ -63,6 +63,7 @@ async function getPortfolio() {
     const equity = p.status === "personal_residence" || p.status === "under_contract" ? null : value - debt;
 
     const propertyUnits = allUnits.filter((u) => u.propertyId === p.id);
+    const doorCount = Math.max(propertyUnits.length, 1); // at least 1 door even if unit records aren't entered yet
     const currentLeases = propertyUnits.map((u) => currentLeaseForUnit(u.id)).filter((l): l is typeof allLeases[number] => !!l);
     const leaseRent = currentLeases.length > 0
       ? currentLeases.reduce((sum, l) => sum + (l.rentAmount ?? 0) + (l.petRent ?? 0), 0)
@@ -96,7 +97,7 @@ async function getPortfolio() {
 
     const metrics: PropertyMetrics = computePropertyMetrics({ property: p, loan, noi: noiByProperty[p.id] });
 
-    return { property: p, entity, loan, pm, underwriting, equity, currentRent, rentIsEstimate, rentSource, monthlyPiti, pitiComplete, metrics };
+    return { property: p, entity, loan, pm, underwriting, equity, currentRent, rentIsEstimate, rentSource, monthlyPiti, pitiComplete, metrics, doorCount };
   });
 
   // "under_contract" properties (e.g. 615 Cherry) are pending acquisitions,
@@ -106,6 +107,7 @@ async function getPortfolio() {
   const rentalRows = rows.filter((r) => r.property.status !== "personal_residence" && r.property.status !== "under_contract");
   const pendingRows = rows.filter((r) => r.property.status === "under_contract");
 
+  const totalDoors = rentalRows.reduce((sum, r) => sum + r.doorCount, 0);
   const totalValue = rentalRows.reduce((sum, r) => sum + (r.property.currentEstValue ?? 0), 0);
   const totalDebt = rentalRows.reduce((sum, r) => sum + (r.loan?.currentBalance ?? 0), 0);
   const totalEquity = totalValue - totalDebt;
@@ -127,7 +129,7 @@ async function getPortfolio() {
   }, 0);
   const householdEquity = householdValue - householdDebt;
 
-  return { rows, rentalRows, pendingRows, totalValue, totalDebt, totalEquity, householdValue, householdDebt, householdEquity };
+  return { rows, rentalRows, pendingRows, totalDoors, totalValue, totalDebt, totalEquity, householdValue, householdDebt, householdEquity };
 }
 
 function fmt(n: number | null | undefined) {
@@ -159,12 +161,12 @@ const statusColor: Record<string, string> = {
 };
 
 export default async function Home() {
-  const { rentalRows, pendingRows, totalValue, totalDebt, totalEquity, householdValue, householdDebt, householdEquity } = await getPortfolio();
+  const { rentalRows, pendingRows, totalDoors, totalValue, totalDebt, totalEquity, householdValue, householdDebt, householdEquity } = await getPortfolio();
   const hasOutsidePartner = Math.round(householdEquity) !== Math.round(totalEquity);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <PageHeader title="BLT Portfolio" subtitle="Bogan-Rhineberger rental portfolio — property-level performance" />
+      <PageHeader title="BLT Portfolio" />
 
       <main className="mx-auto max-w-6xl px-6 py-8 space-y-10">
         {/* Rollup — whole-portfolio totals (100% of every property) */}
@@ -174,6 +176,7 @@ export default async function Home() {
             <div className="rounded-lg border border-zinc-200 bg-white p-4">
               <div className="text-xs uppercase tracking-wide text-zinc-500">Rental Properties</div>
               <div className="mt-1 text-2xl font-semibold">{rentalRows.length}</div>
+              <div className="text-xs font-normal text-zinc-400">{totalDoors} door{totalDoors === 1 ? "" : "s"}</div>
             </div>
             <div className="rounded-lg border border-zinc-200 bg-white p-4">
               <div className="text-xs uppercase tracking-wide text-zinc-500">Est. Portfolio Value</div>
@@ -229,16 +232,17 @@ export default async function Home() {
                   <th className="px-4 py-2">Entity</th>
                   <th className="px-4 py-2">Status</th>
                   <th className="px-4 py-2">PM</th>
+                  <th className="px-4 py-2">Purchased</th>
                   <th className="px-4 py-2 text-right">Value</th>
                   <th className="px-4 py-2 text-right">Debt</th>
                   <th className="px-4 py-2 text-right">Equity</th>
                   <th className="px-4 py-2 text-right">Monthly Rent</th>
-                  <th className="px-4 py-2 text-right">Monthly PITI</th>
+                  <th className="px-4 py-2 text-right">Cap Rate</th>
                   <th className="px-4 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {rentalRows.map(({ property, entity, loan, pm, equity, currentRent, rentSource, monthlyPiti, pitiComplete }) => (
+                {rentalRows.map(({ property, entity, loan, pm, equity, currentRent, rentSource, metrics }) => (
                   <Link key={property.id} href={`/property/${property.id}`} className="table-row hover:bg-zinc-50">
                     <td className="px-4 py-2 font-medium">
                       {property.address}
@@ -251,6 +255,10 @@ export default async function Home() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-zinc-600">{pm?.name ?? "None"}</td>
+                    <td className="px-4 py-2 text-zinc-600">
+                      {fmt(property.purchasePrice)}
+                      <div className="text-xs font-normal text-zinc-400">{property.purchaseDate ?? "—"}</div>
+                    </td>
                     <td className="px-4 py-2 text-right">{fmt(property.currentEstValue)}</td>
                     <td className="px-4 py-2 text-right">{fmt(loan?.currentBalance)}</td>
                     <td className="px-4 py-2 text-right font-medium text-emerald-700">{fmt(equity)}</td>
@@ -259,14 +267,7 @@ export default async function Home() {
                       {rentSource === "estimate" && <div className="text-xs font-normal text-amber-600">est.</div>}
                       {rentSource === "lease" && <div className="text-xs font-normal text-zinc-400">lease</div>}
                     </td>
-                    <td className="px-4 py-2 text-right">
-                      {monthlyPiti === null ? "—" : (
-                        <>
-                          {fmt(monthlyPiti)}
-                          {!pitiComplete && <div className="text-xs font-normal text-amber-600">partial</div>}
-                        </>
-                      )}
-                    </td>
+                    <td className="px-4 py-2 text-right">{pct(metrics.capRate)}</td>
                     <td className="px-4 py-2 text-right text-zinc-300">&rsaquo;</td>
                   </Link>
                 ))}
@@ -275,7 +276,7 @@ export default async function Home() {
           </div>
           <p className="mt-2 text-sm text-zinc-500">
             Monthly Rent prefers the most recent PM statement rent transaction, falling back to the current lease (marked &quot;lease&quot;) and then the VARE underwriting projection (marked &quot;est.&quot;) when neither exists yet — blank means none of the three exists. PM column shows &quot;None&quot; when no property manager is assigned.
-            Click a property for NOI, cap rate, cash-on-cash, appreciation, lease/tenant details, per-unit rent, and maintenance/capex history.
+            Cap Rate (annualized NOI ÷ value, from actual PM statement income/expenses) is the single best at-a-glance measure of a property&apos;s operating performance — click through for NOI, cash-on-cash, DSCR, appreciation, PITI, lease/tenant details, per-unit rent, and maintenance/capex history.
           </p>
         </section>
 

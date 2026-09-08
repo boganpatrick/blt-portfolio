@@ -7,9 +7,10 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageNav";
+import { MetricTile } from "@/components/MetricTile";
 import {
   getCurrentRentDetailByProperty, getNoiByProperty, computePropertyMetrics,
-  monthlyPrincipalAndInterest, resolveCurrentRent,
+  monthlyPrincipalAndInterest, resolveCurrentRent, METRIC_TOOLTIPS,
 } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
@@ -143,54 +144,37 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             {statusLabel[property.status] ?? property.status}
           </span>
           <span className="text-sm text-zinc-500">{pm ? `Managed by ${pm.name}` : "No property manager assigned"}</span>
+          <span className="text-sm text-zinc-400">&middot;</span>
+          <span className="text-sm text-zinc-500">
+            Purchased {fmt(property.purchasePrice)} on {property.purchaseDate ?? "—"}
+          </span>
         </section>
 
         {/* Financial summary */}
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Financial Summary</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Value</div>
-              <div className="mt-1 text-xl font-semibold">{fmt(property.currentEstValue)}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Debt</div>
-              <div className="mt-1 text-xl font-semibold">{fmt(loan?.currentBalance)}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Equity</div>
-              <div className="mt-1 text-xl font-semibold text-emerald-700">{fmt(equity)}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Monthly Rent</div>
-              <div className="mt-1 text-xl font-semibold">{fmt(currentRent)}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Monthly PITI</div>
-              <div className="mt-1 text-xl font-semibold">
-                {fmt(monthlyPiti)}
-                {monthlyPiti !== null && !pitiComplete && <div className="text-xs font-normal text-amber-600">partial</div>}
-              </div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">NOI/mo</div>
-              <div className="mt-1 text-xl font-semibold">
-                {fmt(metrics.noiMonthlyAvg)}
-                {metrics.noiMonthlyAvg !== null && <div className="text-xs font-normal text-zinc-400">{metrics.noiMonths}mo avg</div>}
-              </div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Cap Rate</div>
-              <div className="mt-1 text-xl font-semibold">{pct(metrics.capRate)}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <div className="text-xs uppercase tracking-wide text-zinc-500">Cash-on-Cash</div>
-              <div className="mt-1 text-xl font-semibold">{pct(metrics.cashOnCash)}</div>
-            </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <MetricTile label="Value" value={fmt(property.currentEstValue)} tooltip={METRIC_TOOLTIPS.value} />
+            <MetricTile label="Debt" value={fmt(loan?.currentBalance)} tooltip={METRIC_TOOLTIPS.debt} />
+            <MetricTile label="Equity" value={fmt(equity)} valueClassName="text-emerald-700" tooltip={METRIC_TOOLTIPS.equity} />
+            <MetricTile label="Monthly Rent" value={fmt(currentRent)} tooltip={METRIC_TOOLTIPS.monthlyRent} />
+            <MetricTile
+              label="Monthly PITI"
+              value={fmt(monthlyPiti)}
+              sublabel={monthlyPiti !== null && !pitiComplete ? <span className="text-amber-600">partial</span> : undefined}
+              tooltip={METRIC_TOOLTIPS.monthlyPiti}
+            />
+            <MetricTile
+              label="NOI/mo"
+              value={fmt(metrics.noiMonthlyAvg)}
+              sublabel={metrics.noiMonthlyAvg !== null ? `${metrics.noiMonths}mo avg` : undefined}
+              tooltip={METRIC_TOOLTIPS.noi}
+            />
+            <MetricTile label="Cap Rate" value={pct(metrics.capRate)} tooltip={METRIC_TOOLTIPS.capRate} highlight />
+            <MetricTile label="Cash-on-Cash" value={pct(metrics.cashOnCash)} tooltip={METRIC_TOOLTIPS.cashOnCash} />
+            <MetricTile label="DSCR" value={metrics.dscr === null ? "—" : metrics.dscr.toFixed(2)} tooltip={METRIC_TOOLTIPS.dscr} />
+            <MetricTile label="Appreciation" value={pct(metrics.appreciationPct)} tooltip={METRIC_TOOLTIPS.appreciation} />
           </div>
-          <p className="mt-2 text-sm text-zinc-500">
-            DSCR: {metrics.dscr === null ? "not enough data yet" : metrics.dscr.toFixed(2)}. Appreciation since purchase: {pct(metrics.appreciationPct)}. Purchased {fmt(property.purchasePrice)} on {property.purchaseDate ?? "—"}.
-          </p>
         </section>
 
         {/* Units & leases */}
