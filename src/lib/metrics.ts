@@ -111,10 +111,25 @@ export function resolveCurrentRent(opts: {
 // normalized_categories.group; Capex and Adjustment (owner contributions/
 // draws) are deliberately excluded from NOI. Because most entities only
 // have a handful of months of statements on file so far, this returns the
-// actual monthly average over however many distinct statement periods exist
-// per property, plus that month count, so callers can annualize and label
-// the result honestly ("annualized from N months of actual data") instead
-// of implying a full trailing-twelve-month figure.
+// actual monthly average over however many real calendar months of
+// statement activity exist per property, plus that month count, so callers
+// can annualize and label the result honestly ("annualized from N months of
+// actual data") instead of implying a full trailing-twelve-month figure.
+//
+// The divisor is the count of distinct real calendar months (YYYY-MM) any
+// statement's period actually touches, not "one per statement on file" —
+// some PMs send one combined report covering several months at once (e.g.
+// a Sep-Dec catch-up statement), and counting that as a single "month"
+// alongside every real single-month statement understates how much time
+// the total actually covers, which inflates the monthly average.
+// monthsInRange() expands a (periodStart, periodEnd) pair into every
+// "YYYY-MM" it touches (a combined 9/4-12/31 statement expands to 4:
+// Sep/Oct/Nov/Dec) and those get added to a per-property Set, so overlap
+// collapses for free — e.g. 738 S. Washington has two full-year-2025
+// statements from two different entities/PMs (a real property manager
+// switch mid-history, not a duplicate import), and without deduping by
+// actual month the two spans would sum to 24 months for what's really one
+// calendar year of history; the Set keeps it at the true 12.
 //
 // Statement periods before a property's putIntoServiceDate are excluded
 // from the average entirely — those are pre-rental rehab months that only
@@ -124,12 +139,25 @@ export function resolveCurrentRent(opts: {
 // before.
 export type NoiResult = { monthlyAvg: number; months: number; opexMonthlyAvg: number | null };
 
+function monthsInRange(periodStart: string, periodEnd: string): string[] {
+  let [y, m] = periodStart.split("-").map(Number);
+  const [ey, em] = periodEnd.split("-").map(Number);
+  const months: string[] = [];
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return months;
+}
+
 export async function getNoiByProperty(): Promise<Record<string, NoiResult>> {
   const rows = await db
     .select({
       propertyId: pmReportLineItems.propertyId,
       group: normalizedCategories.group,
       amount: pmReportLineItems.amount,
+      periodStart: pmReports.periodStart,
       periodEnd: pmReports.periodEnd,
     })
     .from(pmReportLineItems)
@@ -139,22 +167,26 @@ export async function getNoiByProperty(): Promise<Record<string, NoiResult>> {
   const propRows = await db.select({ id: properties.id, putIntoServiceDate: properties.putIntoServiceDate }).from(properties);
   const serviceDateById: Record<string, string | null> = Object.fromEntries(propRows.map((p) => [p.id, p.putIntoServiceDate]));
 
-  type Row = { propertyId: string | null; group: string; amount: number; periodEnd: string };
-  const byProperty: Record<string, { net: number; opex: number; periods: Set<string> }> = {};
+  type Row = { propertyId: string | null; group: string; amount: number; periodStart: string; periodEnd: string };
+  // monthsCovered is the union of every "YYYY-MM" any statement period
+  // touches for that property — overlapping or duplicate-spanning periods
+  // (different entities/PMs reporting the same real months) collapse
+  // automatically since it's a Set.
+  const byProperty: Record<string, { net: number; opex: number; monthsCovered: Set<string> }> = {};
   for (const r of rows as Row[]) {
     if (!r.propertyId) continue;
     if (r.group !== "Income" && r.group !== "Operating Expense") continue;
     const serviceDate = serviceDateById[r.propertyId];
     if (serviceDate && r.periodEnd < serviceDate) continue;
-    if (!byProperty[r.propertyId]) byProperty[r.propertyId] = { net: 0, opex: 0, periods: new Set() };
+    if (!byProperty[r.propertyId]) byProperty[r.propertyId] = { net: 0, opex: 0, monthsCovered: new Set() };
     byProperty[r.propertyId].net += r.amount; // income positive, opex negative — already NOI-signed
     if (r.group === "Operating Expense") byProperty[r.propertyId].opex += r.amount;
-    byProperty[r.propertyId].periods.add(r.periodEnd);
+    for (const ym of monthsInRange(r.periodStart, r.periodEnd)) byProperty[r.propertyId].monthsCovered.add(ym);
   }
 
   const result: Record<string, NoiResult> = {};
-  for (const [propertyId, { net, opex, periods }] of Object.entries(byProperty)) {
-    const months = Math.max(periods.size, 1);
+  for (const [propertyId, { net, opex, monthsCovered }] of Object.entries(byProperty)) {
+    const months = Math.max(monthsCovered.size, 1);
     result[propertyId] = { monthlyAvg: net / months, months, opexMonthlyAvg: -(opex / months) };
   }
   return result;

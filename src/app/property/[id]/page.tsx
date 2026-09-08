@@ -253,7 +253,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
               tooltip={METRIC_TOOLTIPS.opex}
               breakdown={metrics.opexMonthlyAvg !== null ? (
                 <>
-                  <BreakdownRow label="Averaged over" value={`${metrics.noiMonths} statement month${metrics.noiMonths === 1 ? "" : "s"}`} />
+                  <BreakdownRow label="Averaged over" value={`${metrics.noiMonths} calendar month${metrics.noiMonths === 1 ? "" : "s"}`} />
                   <BreakdownRow label="Since in service" value={property.putIntoServiceDate ?? "purchase"} />
                   <BreakdownRow label="Total over that span" value={fmt(metrics.opexMonthlyAvg * metrics.noiMonths)} />
                 </>
@@ -277,7 +277,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                   </>
                 ) : metrics.noiMonthlyAvg !== null ? (
                   <>
-                    <BreakdownRow label="Averaged over" value={`${metrics.noiMonths} statement month${metrics.noiMonths === 1 ? "" : "s"}`} />
+                    <BreakdownRow label="Averaged over" value={`${metrics.noiMonths} calendar month${metrics.noiMonths === 1 ? "" : "s"}`} />
                     <BreakdownRow label="Since in service" value={property.putIntoServiceDate ?? "purchase"} />
                     <BreakdownRow label="Total (income − opex) over that span" value={fmt(metrics.noiMonthlyAvg * metrics.noiMonths)} />
                   </>
