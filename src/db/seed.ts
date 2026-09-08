@@ -246,7 +246,7 @@ async function main() {
     rehabBudget: 35000, rehabCompleteDate: "2025-07-01",
     putIntoServiceDate: "2025-08-01",
     currentEstValue: 152000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
-    notes: "Cash-out refi Aug 2025 for $105k.",
+    notes: "Cash-out refi Aug 2025 for $105k. Original 12/18/2024 acquisition was financed with a short-term construction/bridge loan from Commercial Lender LLC ($97,590 principal, 11.49% interest-only, matured 1/1/2026, per the Metro Title closing package) — paid off by the Aug-2025 DSCR refi already on file. Buyer of record was BLT Washington LLC; Patrick Bogan and Gina Rhineberger guaranteed the loan.",
   });
 
   const wash738 = await addProperty({
@@ -389,21 +389,27 @@ async function main() {
   // Division St are both duplexes (2 doors), 225 S Kingston is a triplex (3
   // doors), and 110-112 S. Buckeye St is a 4-unit mixed-use building (1
   // apartment + 3 office suites).
-  await db.insert(units).values([
-    { propertyId: wash738.id, label: "Unit A", bedrooms: 2, bathrooms: 1 },
-    { propertyId: wash738.id, label: "Unit B", bedrooms: 1, bathrooms: 1 },
-  ]);
-  await db.insert(units).values([
+  const [unitWash738_1, unitWash738_2] = await db.insert(units).values([
+    { propertyId: wash738.id, label: "Unit 1", bedrooms: 2, bathrooms: 1 },
+    { propertyId: wash738.id, label: "Unit 2", bedrooms: 1, bathrooms: 1 },
+  ]).returning();
+  const [unitKingston1, unitKingston2, unitKingston3] = await db.insert(units).values([
     { propertyId: kingston.id, label: "Unit 1", bedrooms: 2, bathrooms: 1 },
     { propertyId: kingston.id, label: "Unit 2", bedrooms: 1, bathrooms: 1 },
     { propertyId: kingston.id, label: "Unit 3", bedrooms: 1, bathrooms: 1 },
-  ]);
+  ]).returning();
   await db.insert(units).values([
     { propertyId: buckeyeBldg.id, label: "Apartment", bedrooms: 2, bathrooms: 2 },
     { propertyId: buckeyeBldg.id, label: "Office Suite 1" },
     { propertyId: buckeyeBldg.id, label: "Office Suite 2" },
     { propertyId: buckeyeBldg.id, label: "Office Suite 3" },
   ]);
+  const [unitBuckeye2000] = await db.insert(units).values([
+    { propertyId: buckeye2000.id, label: "Main House", bedrooms: 4, bathrooms: 1 },
+  ]).returning();
+  const [unitHemlock] = await db.insert(units).values([
+    { propertyId: hemlock.id, label: "Main House", bedrooms: 3, bathrooms: 1 },
+  ]).returning();
 
   await db.insert(leases).values([
     {
@@ -435,14 +441,16 @@ async function main() {
       notes: "CRM Properties lease (808_Maumee_Kokomo_lease_20260324.pdf), landlord of record listed as BLT Mohawk, LLC on the lease itself even though the property is now titled to BLT Wildcat LLC per the 4/17/2026 quitclaim — likely just an unupdated template, not an actual ownership discrepancy. $1,500 security deposit. Appliances provided: stove, refrigerator, microwave, dishwasher, stacked washer/dryer. Converts to month-to-month at $75/mo fee if not renewed by 4/1/2027. Matches the VARE underwriting's projected rent exactly.",
     },
     {
-      // Patrick's stated figure (updated 2026-09-04, was $600 as of
-      // 2026-08-31), not a document — 1137 Wayne St is a family/personal
-      // arrangement with no formal lease on file.
+      // Lease document arrived 2026-09-08 (Wayne_St_Lease_Judy_KlineStratton_20211201_signed.pdf):
+      // month-to-month from inception, $600/mo, no deposit, 45-day notice.
+      // Rent amount below is Patrick's own updated figure (2026-09-04, was
+      // $600 before that) — there's no signed amendment for the increase,
+      // just his word, which is standard for this family arrangement.
       unitId: unitWayneSt.id,
-      tenantName: undefined,
-      rentAmount: 700, startDate: undefined, endDate: undefined,
+      tenantName: "Judith A. Kline-Stratton",
+      rentAmount: 700, startDate: "2021-12-01", endDate: undefined,
       status: "active",
-      notes: "Rent figure is Patrick's own stated number, not from a lease document — this is a family/personal arrangement (Personal entity, no PM), so no formal lease exists to pull it from. Updated to $700 2026-09-04 per Patrick (was $600).",
+      notes: "Lease on file (Wayne_St_Lease_Judy_KlineStratton_20211201_signed.pdf): month-to-month from inception, $600/mo, no security deposit (waived), 45-day notice to terminate. Rent updated to $700/mo per Patrick 2026-09-04 — the lease document's $600 predates that increase and there's no signed amendment on file for it, just Patrick's word (this is a family arrangement — tenant is Gina's mother).",
     },
     {
       // Not from a lease document either — pulled from the T&H Realty PM
@@ -464,10 +472,62 @@ async function main() {
       status: "active",
       notes: "From BLT Partners LLC's T&H Realty PM statement, July 2026: \"Rent (Month-to-Month) (07-2026)\" = $1,496 (10% PM fee -$149.60). Combined with Side A's $1,410, this is the $2,906 total income shown on that statement. No tenant name or lease document available from this source — month-to-month, no end date.",
     },
+    {
+      unitId: unitWash738_1.id,
+      tenantName: "Michael Isaacs",
+      rentAmount: 620, startDate: "2025-06-01", endDate: "2026-05-31",
+      status: "active",
+      notes: "Lease on file (738_S_Washington_Kokomo_Unit_1_lease_20250601.pdf) — a renewal; tenant has resided there since 2/16/2016. $520 security deposit. PM statements show $640/mo as of Jul 2026, a small increase not reflected in this lease document — that PM figure is what the dashboard shows as current rent. Landlord signature line was blank on the copy provided.",
+    },
+    {
+      // Original term ended 2024-03-31, but Patrick confirmed this tenant
+      // renewed with no signed renewal document on file — end_date left
+      // null since it's ongoing.
+      unitId: unitWash738_2.id,
+      tenantName: "Kaela Abernathy",
+      rentAmount: 500, startDate: "2023-02-09", endDate: undefined,
+      status: "active",
+      notes: "Original lease on file (738_S_Washington_Kokomo_Unit_2_lease_20230207.pdf) predates Patrick's 6/16/2025 purchase — tenant conveyed with the property. Patrick confirmed this tenant renewed, but no signed renewal document is on file; the original lease's own month-to-month conversion clause sets $575/mo, though PM statements actually show $500/mo collected most months and $425/mo in Jul 2026 (possibly a one-off credit) — used the $500 steady figure here since it's what's actually being billed. Rhino bond used in place of a cash security deposit.",
+    },
+    {
+      // Very short one-month term on the document itself; Patrick confirmed
+      // this tenant renewed, so end_date is left null since it's ongoing.
+      unitId: unitKingston1.id,
+      tenantName: "Edward Burns & Andrew Burns",
+      rentAmount: 675, startDate: "2025-08-01", endDate: undefined,
+      status: "active",
+      notes: "Lease on file (225_S_Kingston_Unit_1_lease_20250728.pdf) — matches \"Apt 1\" on PM statements exactly ($675/mo). Very short one-month term and no security deposit; utilities section states tenant has resided there since 8/1/2017, so this looks like a re-signed formality rather than a real new tenancy, and likely converts to month-to-month after 8/31/2025 same as it evidently has been. The signature page on the copy provided appears unsigned by both parties — worth a signed copy if this ever needs to hold up as a real lease.",
+    },
+    {
+      // Kingston Unit 2 — see notes on the unit-mapping ambiguity below.
+      unitId: unitKingston2.id,
+      tenantName: "Zoie Schori & Mathew Martinez",
+      rentAmount: 580, startDate: "2025-03-01", endDate: "2025-07-31",
+      status: "ended",
+      notes: "Lease on file (255_Kingston_Rd_Apt_2_East.pdf) for \"Apt 2 East\" — ended 7/31/2025, Rhino bond in place of cash deposit.",
+    },
+    {
+      unitId: unitKingston2.id,
+      tenantName: "Caeley Alexandria Lenn",
+      rentAmount: 600, startDate: "2025-02-21", endDate: "2026-02-28",
+      status: "active",
+      notes: "Lease on file (225_S_Kingston_Unit_2W_lease_20250220.pdf, labeled \"Unit 2W\" — matched here to \"Apt 2 East\"/Unit 2 since the $600/mo rent matches that unit's current PM statement rent exactly; the \"2W\" vs \"East\" naming is inconsistent across documents and worth Patrick confirming). $1,200 security deposit. Note the lease's own 2/21/2025 start slightly predates the prior tenant's (Zoie Schori & Mathew Martinez) 7/31/2025 end date on paper — likely just a paperwork date quirk during turnover, not a real overlap. Unit 3 (\"Apt 3 West\", $650/mo per PM statement) still has no lease document on file.",
+    },
+    {
+      unitId: unitBuckeye2000.id,
+      tenantName: "Devon Wooldridge & Nicole Birkes",
+      rentAmount: 1235, startDate: "2025-04-01", endDate: "2026-03-31",
+      status: "active",
+      notes: "Renewal lease on file (2000_S_Buckeye_St_Lease_Renewal.pdf). $2,400 security deposit. 3 minor occupants listed. PM statements show $1,275/mo as of Jul 2026, an increase not reflected in this renewal document — that PM figure is what the dashboard shows as current rent.",
+    },
+    {
+      unitId: unitHemlock.id,
+      tenantName: "Brittany Sands & Burley Sands",
+      rentAmount: 815, startDate: "2025-05-01", endDate: "2026-04-30",
+      status: "active",
+      notes: "Renewal lease on file (4076_S_450_E_Lease.pdf; prior lease expired 4/30/2025). $2,300 security deposit, plus a separate $90/mo sanitation charge not included in the $815 base rent figure here. Property is on well water. PM statements show $840/mo as of Jul 2026, a small increase not reflected in this lease document — that PM figure is what the dashboard shows as current rent.",
+    },
   ]);
-  // Other units/leases (738 S. Washington, Buckeye/Flats, 2000 S Buckeye,
-  // Hemlock, Kingston) not yet entered — no lease document or PM report
-  // rent figure on file yet for those. Add as they come in.
 
   // ---------- Loans (from portfolio workbook "mortgage balance") ----------
   await db.insert(loans).values([
@@ -477,17 +537,15 @@ async function main() {
     // number is inferred rather than stated outright, that's called out in
     // notes so it can be corrected once Patrick confirms it.
     {
-      propertyId: wayneSt.id, lender: "Union Savings", loanType: "conventional",
+      propertyId: wayneSt.id, lender: "Union Savings Bank", loanType: "conventional",
       currentBalance: 93100, prepayPenaltyTerms: undefined,
       rate: 0.025, termMonths: 180, originationDate: "2021-06-28",
-      // originalAmount is inferred, not stated: portfolio notes say "acquired
-      // with 20% down" against the $198,745 purchase price, so
-      // 198745 * 0.80 = 158,996. The tab's own "terms" field (15yr fixed
-      // 2.5%) is a real stated number; the balance field in that tab was
-      // corrupted ("0434 as of 2024/11/03") so current_balance here is still
-      // the portfolio workbook's rollup figure, not from this tab.
-      originalAmount: 158996,
-      notes: "Rate/term from BLT_Portfolio.xlsx '1137 Wayne St' tab (15yr fixed 2.5%). Original loan amount is an estimate (80% of $198,745 purchase price, per the portfolio notes' \"20% down\") — please confirm the real number. Insurance carrier on file (State Farm) but no premium amount yet.",
+      // originalAmount confirmed 2026-09-08 against
+      // 1137_Wayne_St_Bogan_ALTA_Settlement_20210628.pdf — was a $158,996
+      // estimate (80% of the $198,745 purchase price, per the portfolio
+      // notes' "20% down") before the real closing doc arrived.
+      originalAmount: 135000,
+      notes: "Rate/term from BLT_Portfolio.xlsx '1137 Wayne St' tab (15yr fixed 2.5%). Original loan amount confirmed at $135,000 from the 1137_Wayne_St_Bogan_ALTA_Settlement_20210628.pdf closing statement (was a $158,996 \"20% down\" estimate before). Insurance carrier on file (State Farm) but no premium amount yet.",
     },
     {
       propertyId: division1139.id, currentBalance: 148400, prepayPenaltyTerms: "3-2-1 year/% penalty",
@@ -521,13 +579,16 @@ async function main() {
       notes: "Rate/term/loan amount/tax/insurance from VARE_1611_S_Washington_Kokomo_20250826.xlsx (the underwriting for the Aug-2025 DSCR refi) — these are underwriting-file figures, not yet confirmed against the actual closing docs/mortgage statement Patrick will send.",
     },
     { propertyId: wash738.id, currentBalance: 74700, prepayPenaltyTerms: "3-2-1 year/% penalty",
-      // VARE_738_S_Washington_Kokomo_20250728.xlsx: Loan Amount $75,000 vs.
-      // current balance $74,700 — consistent with a loan closed shortly
-      // after this file's date. Property Tax $1,140/yr -> $95/mo;
-      // Insurance/mo $175 stated directly.
-      rate: 0.07, termMonths: 360, originalAmount: 75000,
-      monthlyTaxEscrow: 1140 / 12, monthlyInsuranceEscrow: 175,
-      notes: "Rate/term/loan amount/tax/insurance from VARE_738_S_Washington_Kokomo_20250728.xlsx — underwriting-file figures, not yet confirmed against actual closing docs/mortgage statement.",
+      // Real UWM closing package (738_S_Washington_UWM_closing_package_20250616.pdf)
+      // confirmed 2026-09-08 — purchase-money loan, not a refi. $75,000 @
+      // 7.125%/30yr. Escrow collected at closing: 5mo tax ($605.85 -> $121.17/mo)
+      // and 3mo insurance ($403.26 -> $134.42/mo). Total closing costs
+      // $8,682.59; cash to close $32,281.17. Buyer BLT Washington LLC;
+      // seller Flippin Rentals LLC.
+      lender: "United Wholesale Mortgage, LLC", loanType: "conventional",
+      rate: 0.07125, termMonths: 360, originalAmount: 75000,
+      monthlyTaxEscrow: 121.17, monthlyInsuranceEscrow: 134.42,
+      notes: "Rate/term/loan amount/tax/insurance confirmed against the 738_S_Washington_UWM_closing_package_20250616.pdf (purchase-money loan, not a refi) — 7.125%/30yr, $75,000. Escrow collected at closing: 5mo tax ($605.85), 3mo insurance ($403.26). Total closing costs $8,682.59; cash to close $32,281.17. Buyer BLT Washington LLC; seller Flippin Rentals LLC.",
     },
     {
       // Real cash-out refi closing package (Elite Commercial Servicing payoff
