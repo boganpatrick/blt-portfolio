@@ -13,10 +13,6 @@ const nowNext: Item[] = [
     title: "1339 Division St cash-out refi",
     detail: "In process as of late Aug 2026, expected to close within ~30 days. Once it closes: enter real loan terms, and work out the Mike/Household split transition per the B2 Partners capital stack method.",
   },
-  {
-    title: "225 S Kingston: Unit 2 East/West lease mis-linked",
-    detail: "Kingston is a 3-unit building — Unit 1, Unit 2 East, Unit 2 West (confirmed 2026-09-08; there's no \"Unit 3\", that was a mistaken read of the PM statement). In production, Caeley Alexandria Lenn's lease (source file is literally named \"...Unit_2W_lease...\") is attached to the Unit 2 East unit row instead of Unit 2 West — so Unit 2 East currently shows two overlapping leases (Caeley's + Zoie Schori & Mathew Martinez's) and Unit 2 West shows no lease at all. Needs a one-row unit_id fix on Caeley's lease record. Separately, 110-112 S. Buckeye St is still mid-rehab with no tenants yet, so no leases apply there — that part's expected, not a bug.",
-  },
 ];
 
 const later: Item[] = [
