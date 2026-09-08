@@ -152,8 +152,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             first. */}
         <section>
           <div
-            title="Purchase price/date and current estimated value."
-            className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-2"
+            title="Purchase price/date, current estimated value, and appreciation since purchase."
+            className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-3"
           >
             <div>
               <div className="text-xs uppercase tracking-wide text-zinc-500">Purchased</div>
@@ -166,6 +166,11 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
               <div className="text-xs font-normal text-zinc-400">
                 {property.currentValueAsOf ? `as of ${property.currentValueAsOf}` : property.currentValueSource ?? "—"}
               </div>
+            </div>
+            <div className="sm:border-l sm:border-zinc-100 sm:pl-4">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Appreciation</div>
+              <div className="mt-1 text-xl font-semibold">{pct(metrics.appreciationPct)}</div>
+              <div className="text-xs font-normal text-zinc-400">since purchase</div>
             </div>
           </div>
         </section>
@@ -323,20 +328,6 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                   <BreakdownRow label="Annual NOI" value={fmt(metrics.annualNoi)} />
                   <BreakdownRow label="÷ Annual PITI" value={fmt(metrics.annualDebtService)} />
                   <BreakdownRow label="= DSCR" value={metrics.dscr.toFixed(2)} />
-                </>
-              ) : (
-                <BreakdownRow label="Not enough data yet" value="—" />
-              )}
-            />
-            <MetricTile
-              label="Appreciation"
-              value={pct(metrics.appreciationPct)}
-              tooltip={METRIC_TOOLTIPS.appreciation}
-              breakdown={metrics.appreciationPct !== null ? (
-                <>
-                  <BreakdownRow label="Current value" value={fmt(value)} />
-                  <BreakdownRow label="÷ Purchase price" value={fmt(property.purchasePrice)} />
-                  <BreakdownRow label="− 1 = Appreciation" value={pct(metrics.appreciationPct)} />
                 </>
               ) : (
                 <BreakdownRow label="Not enough data yet" value="—" />
