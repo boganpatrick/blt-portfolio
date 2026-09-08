@@ -6,16 +6,16 @@ type Item = { title: string; detail: string };
 
 const nowNext: Item[] = [
   {
-    title: "Confirm remaining loan figures",
-    detail: "1137 Wayne St's ~$158,996 original loan amount is still inferred from \"20% down\" in the portfolio notes, not a closing doc. 1611 S. Washington and 738 S. Washington's loans are still VARE-underwriting-file figures, not confirmed against actual mortgage statements.",
+    title: "Confirm 1611 S. Washington's DSCR refi terms",
+    detail: "1137 Wayne St and 738 S. Washington's loans are now confirmed against real closing packages. 1611 S. Washington's Aug-2025 DSCR refi is still a VARE-underwriting-file figure — the closing doc on file (Metro Title, 12/18/2024) is for the original bridge-loan purchase, a different loan that's since been paid off.",
   },
   {
     title: "1339 Division St cash-out refi",
     detail: "In process as of late Aug 2026, expected to close within ~30 days. Once it closes: enter real loan terms, and work out the Mike/Household split transition per the B2 Partners capital stack method.",
   },
   {
-    title: "Remaining lease documents",
-    detail: "Wayne St, 738 S. Washington, the Buckeye/Flats building, 2000 S Buckeye, Hemlock, and Kingston don't have lease documents on file yet — current rent for these comes from PM statements or the VARE estimate instead.",
+    title: "A couple of remaining lease gaps",
+    detail: "225 S Kingston's Unit 3 (\"Apt 3 West\", $650/mo per PM statement) has no lease document on file. 110-112 S. Buckeye St is still mid-rehab with no tenants yet, so no leases apply there either.",
   },
 ];
 
