@@ -144,55 +144,60 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             {statusLabel[property.status] ?? property.status}
           </span>
           <span className="text-sm text-zinc-500">{pm ? `Managed by ${pm.name}` : "No property manager assigned"}</span>
-          <span className="text-sm text-zinc-400">&middot;</span>
-          <span className="text-sm text-zinc-500">
-            Purchased {fmt(property.purchasePrice)} on {property.purchaseDate ?? "—"}
-          </span>
         </section>
 
-        {/* Financial summary — every tile expands on click to show the
-            actual numbers it was built from, not just the hover explainer. */}
+        {/* Acquisition & current value — the key facts up front, shown
+            above the metric tiles. Unlike those, this card doesn't expand;
+            it's not a computed metric, just the two numbers worth seeing
+            first. */}
+        <section>
+          <div
+            title="Purchase price/date and current estimated value."
+            className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-2"
+          >
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Purchased</div>
+              <div className="mt-1 text-xl font-semibold">{fmt(property.purchasePrice)}</div>
+              <div className="text-xs font-normal text-zinc-400">{property.purchaseDate ?? "—"}</div>
+            </div>
+            <div className="sm:border-l sm:border-zinc-100 sm:pl-4">
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Current Value</div>
+              <div className="mt-1 text-xl font-semibold">{fmt(property.currentEstValue)}</div>
+              <div className="text-xs font-normal text-zinc-400">
+                {property.currentValueAsOf ? `as of ${property.currentValueAsOf}` : property.currentValueSource ?? "—"}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Financial summary — every tile is expanded by default to show
+            the actual numbers it was built from; click a tile to collapse
+            it, click again to bring it back. */}
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Financial Summary</h2>
-          <p className="mb-3 text-xs text-zinc-400">Hover any tile for what it means; click a tile to see the numbers behind it.</p>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <p className="mb-3 text-xs text-zinc-400">Hover any tile for what it means; click a tile to collapse or expand the numbers behind it.</p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <MetricTile
-              label="Value"
-              value={fmt(property.currentEstValue)}
-              sublabel={property.currentValueAsOf ? `as of ${property.currentValueAsOf}` : property.currentValueSource ?? undefined}
-              tooltip={METRIC_TOOLTIPS.value}
-              breakdown={
-                <>
-                  <BreakdownRow label="Source" value={property.currentValueSource ?? "not specified"} />
-                  <BreakdownRow label="As of" value={property.currentValueAsOf ?? "not on file"} />
-                </>
-              }
-            />
-            <MetricTile
-              label="Debt"
-              value={fmt(loan?.currentBalance)}
-              tooltip={METRIC_TOOLTIPS.debt}
-              breakdown={loan ? (
-                <>
-                  <BreakdownRow label="Lender" value={loan.lender ?? "—"} />
-                  <BreakdownRow label="Balance as of" value={loan.balanceAsOf ?? "—"} />
-                  <BreakdownRow label="Original loan amount" value={fmt(loan.originalAmount)} />
-                  <BreakdownRow label="Rate" value={loan.rate != null ? pct(loan.rate) : "—"} />
-                </>
-              ) : (
-                <BreakdownRow label="No loan on file" value="cash purchase" />
-              )}
-            />
-            <MetricTile
-              label="Equity"
+              label="Debt / Equity"
               value={fmt(equity)}
               valueClassName="text-emerald-700"
-              tooltip={METRIC_TOOLTIPS.equity}
+              sublabel="equity"
+              tooltip={METRIC_TOOLTIPS.debtEquity}
               breakdown={
                 <>
                   <BreakdownRow label="Value" value={fmt(value)} />
                   <BreakdownRow label="− Debt" value={fmt(debt)} />
                   <BreakdownRow label="= Equity" value={fmt(equity)} />
+                  <BreakdownRow label="Leverage (loan-to-value)" value={metrics.leveragePct !== null ? pct(metrics.leveragePct) : "—"} />
+                  {loan && (
+                    <>
+                      <BreakdownRow label="Lender" value={loan.lender ?? "—"} />
+                      <BreakdownRow label="Balance as of" value={loan.balanceAsOf ?? "—"} />
+                      <BreakdownRow label="Original loan amount" value={fmt(loan.originalAmount)} />
+                      <BreakdownRow label="Rate" value={loan.rate != null ? pct(loan.rate) : "—"} />
+                    </>
+                  )}
+                  {!loan && <BreakdownRow label="No loan on file" value="cash purchase" />}
                 </>
               }
             />
