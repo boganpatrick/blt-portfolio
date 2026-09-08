@@ -197,6 +197,7 @@ export type PropertyMetrics = {
   cashOnCash: number | null;
   cashInvested: number;
   appreciationPct: number | null;
+  leveragePct: number | null; // debt / current value (loan-to-value)
 };
 
 export function computePropertyMetrics(opts: {
@@ -251,6 +252,13 @@ export function computePropertyMetrics(opts: {
     ? actualValue / property.purchasePrice - 1
     : null;
 
+  // Loan-to-value, using the real current value only (never the ARV
+  // fallback) — same denominator convention as appreciation and the
+  // property page's equity figure.
+  const leveragePct = actualValue && actualValue > 0
+    ? (loan?.currentBalance ?? 0) / actualValue
+    : null;
+
   return {
     noiMonthlyAvg,
     noiMonths: noi?.months ?? 0,
@@ -265,6 +273,7 @@ export function computePropertyMetrics(opts: {
     cashOnCash,
     cashInvested,
     appreciationPct,
+    leveragePct,
   };
 }
 
@@ -320,6 +329,8 @@ export const METRIC_TOOLTIPS = {
   value: "Current estimated property value, from the most recent appraisal, Zillow estimate, or other source on file.",
   debt: "Outstanding loan balance as of the most recent mortgage statement on file. Blank means the property was bought in cash.",
   equity: "Value minus debt.",
+  debtEquity: "Outstanding loan balance, equity (value minus debt), and leverage (loan-to-value) — the mortgage statement and current value together in one place. Blank debt means the property was bought in cash.",
+  leverage: "Loan-to-value — outstanding debt as a percentage of current value. Higher means more of the property is financed.",
   monthlyRent: "Current monthly rent. Prefers the most recent PM statement rent transaction; falls back to the active lease (\"lease\"), then a VARE underwriting projection (\"est.\") when neither exists yet.",
   monthlyPiti: "Principal, Interest, Taxes & Insurance — the full monthly mortgage payment including escrowed tax and insurance. \"Partial\" means the loan's rate, term, original amount, or escrow figures aren't fully entered yet.",
   noi: "Net Operating Income per month — actual rental income minus operating expenses, from PM statement data, averaged over the months on file since the property was placed in service (excludes capital improvements, owner draws/contributions, and any pre-rental rehab months). When there's no PM statement history yet — not closed, or not rented — this is projected instead, from the VARE underwriting's rent, vacancy, repair, and PM-fee assumptions.",
