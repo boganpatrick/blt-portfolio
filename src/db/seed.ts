@@ -226,7 +226,7 @@ async function main() {
     purchasePrice: 255000, purchaseDate: "2023-04-28",
     rehabBudget: 80000, rehabCompleteDate: "2024-04-01",
     putIntoServiceDate: "2024-05-01",
-    currentEstValue: 345000, currentValueSource: "Aug24 appraisal",
+    currentEstValue: 345000, currentValueSource: "Aug24 appraisal", currentValueAsOf: "2024-08", // month only — exact day not on file, just "Aug24" in the source label
     notes: "Cash-out refi Oct 2024 for $150k.",
   });
 
@@ -245,7 +245,7 @@ async function main() {
     purchasePrice: 90000, purchaseDate: "2024-12-18",
     rehabBudget: 35000, rehabCompleteDate: "2025-07-01",
     putIntoServiceDate: "2025-08-01",
-    currentEstValue: 152000, currentValueSource: "Aug25 appraisal",
+    currentEstValue: 152000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
     notes: "Cash-out refi Aug 2025 for $105k.",
   });
 
@@ -263,7 +263,7 @@ async function main() {
     purchasePrice: 95000, purchaseDate: "2024-12-13",
     rehabBudget: 35000, rehabCompleteDate: "2025-07-01",
     putIntoServiceDate: "2025-07-01",
-    currentEstValue: 148000, currentValueSource: "Aug25 appraisal",
+    currentEstValue: 148000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
     notes: "Cash-out refi Aug 2025 for $105k.",
   });
 
@@ -281,21 +281,21 @@ async function main() {
     address: "2000 S Buckeye", city: "Kokomo", state: "IN", zip: "46902",
     propertyType: "SFH 4/1", status: "leased",
     purchasePrice: 95000, purchaseDate: "2025-08-27",
-    currentEstValue: 112000, currentValueSource: "Aug25 appraisal",
+    currentEstValue: 112000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
   });
 
   const hemlock = await addProperty({
     address: "4076 S 450 E", city: "Hemlock", state: "IN", zip: "46937",
     propertyType: "SFH 3/1", status: "leased",
     purchasePrice: 60000, purchaseDate: "2025-08-27",
-    currentEstValue: 85000, currentValueSource: "Aug25 appraisal",
+    currentEstValue: 85000, currentValueSource: "Aug25 appraisal", currentValueAsOf: "2025-08", // month only — exact day not on file
   });
 
   const kingston = await addProperty({
     address: "225 S Kingston", city: "Kokomo", state: "IN", zip: "46901",
     propertyType: "Triplex 2/1, 1/1, 1/1", status: "leased",
     purchasePrice: 115000, purchaseDate: "2025-10-03",
-    currentEstValue: 120000, currentValueSource: "Sep25 appraisal",
+    currentEstValue: 120000, currentValueSource: "Sep25 appraisal", currentValueAsOf: "2025-09", // month only — exact day not on file
   });
 
   const division1339 = await addProperty({
@@ -774,6 +774,21 @@ async function main() {
       projectedYear1CashFlow: 1441.54,
       projectedYear1TotalReturn: 20198.81,
       notes: "This is the actual acquisition underwriting (not the withdrawn combined 3-property file) — see the loans table entry for the resulting rate/term/loan amount/escrow, confirmed against 4076_S_450_E_Hemlock_ALTA_settlement_20250827.pdf.",
+    },
+    {
+      propertyId: buckeyeBldg.id,
+      sourceFile: "VARE_110_112_S._Buckeye_Kokomo.xlsx",
+      purchasePrice: 206000,
+      rehabCostBudget: 140000,
+      arv: 450000,
+      projectedMonthlyRent: 3200,
+      vacancyPct: 0.05,
+      repairPct: 0.05,
+      capexPct: 0.05,
+      pmFeePct: 0.10,
+      projectedYear1CashFlow: -718.93,
+      projectedYear1TotalReturn: 101598.46,
+      notes: "Still mid-rehab as of this pass, so this underwriting is the only source for a projected NOI/cap rate until real PM statement activity starts. $3,200 projected monthly rent is the combined total across all 4 units (1 apartment + 3 office suites), not per-unit. ARV $450,000 vs. the $300,000 'PB estimate' currently in current_est_value — the PB estimate is Patrick's own mid-rehab ballpark, not a post-rehab appraisal, so the two aren't expected to match yet. Renovation tab's 21-item checklist ($83,620) imported into maintenance_events separately (see scripts/extract_vare_renovation.py) — noticeably below the $140,000 lump-sum rehab budget above, so there's likely non-itemized spend (e.g. the commercial office-suite build-out, which this residential-style checklist doesn't have line items for) not captured in that $83,620.",
     },
   ]);
 

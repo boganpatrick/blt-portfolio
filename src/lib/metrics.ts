@@ -179,14 +179,23 @@ export function monthlyPrincipalAndInterest(loan: typeof loans.$inferSelect | un
 //   (purchase price + rehab spent, a practical stand-in for "cash in" since
 //   most properties here don't have a clean all-in cash-invested figure yet)
 // appreciation = current value / purchase price - 1
+// Alongside the metrics themselves, this carries the intermediate figures
+// each one was built from (annualized NOI, the value/debt-service/cash
+// figures used as denominators) — so a caller can show "here's exactly
+// what was plugged in" instead of just the final number.
 export type PropertyMetrics = {
   noiMonthlyAvg: number | null;
   noiMonths: number;
   noiIsProjected: boolean;
   opexMonthlyAvg: number | null;
+  annualNoi: number | null;
   capRate: number | null;
+  capRateValue: number | null; // the denominator actually used (current value, or ARV when NOI is projected)
+  capRateValueIsArv: boolean;
+  annualDebtService: number | null;
   dscr: number | null;
   cashOnCash: number | null;
+  cashInvested: number;
   appreciationPct: number | null;
 };
 
@@ -247,9 +256,14 @@ export function computePropertyMetrics(opts: {
     noiMonths: noi?.months ?? 0,
     noiIsProjected,
     opexMonthlyAvg: noi?.opexMonthlyAvg ?? null,
+    annualNoi,
     capRate,
+    capRateValue: value,
+    capRateValueIsArv: noiIsProjected && actualValue === null && value !== null,
+    annualDebtService,
     dscr,
     cashOnCash,
+    cashInvested,
     appreciationPct,
   };
 }

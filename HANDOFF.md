@@ -1,4 +1,69 @@
-# BLT Portfolio Manager — handoff notes (updated 2026-09-08, twentieth pass)
+# BLT Portfolio Manager — handoff notes (updated 2026-09-08, twenty-first pass)
+
+## Twenty-first pass: 110-112 S. Buckeye's real VARE file, click-to-see-the-math tiles, value "as of" backfill, default sort flipped
+
+- **110-112 S. Buckeye St's VARE file, provided this pass**
+  (`VARE_110_112_S._Buckeye_Kokomo.xlsx`) — added its underwriting model to
+  `underwriting_models` (purchase $206,000, rehab budget $140,000, ARV
+  $450,000, projected rent $3,200/mo combined across all 4 units, 5%
+  vacancy/repair/capex, 10% PM fee), so it now shows a real projected NOI
+  ($2,560/mo) and cap rate (10.2%, off the $300,000 PB estimate already on
+  file, not the ARV — see below) instead of a blank, closing the gap from
+  last pass. Also ran the file's Renovation tab through the same extraction
+  pipeline used for every other property (`scripts/extract_vare_renovation.py`
+  + `import-maintenance-events.ts`) — added 21 real rehab line items
+  totaling $83,620 to `maintenance_events`. That's noticeably below the
+  $140,000 lump-sum budget, so there's likely non-itemized spend (e.g. the
+  commercial office-suite build-out, which this residential-style checklist
+  has no line items for) not captured in that $83,620 — worth asking
+  Patrick about if it matters.
+- **Value "as of" was mostly missing** because most properties only ever
+  had a `current_value_source` string like "Aug25 appraisal" — no separate
+  as-of date. Parsed the month/year out of that label into
+  `current_value_as_of` for the 6 properties where it was encoded there
+  (1139 Division St, 1611 S. Washington, 5109 Mohawk, 2000 S Buckeye, 4076 S
+  450 E, 225 S Kingston) — month precision only, since the source label
+  never had an exact day. For "zillow" and "PB estimate" sources, there's no
+  date to extract, so the Value tile/column now falls back to showing that
+  source label itself instead of a blank when there's no as-of date — so
+  there's always some dating context, just not always a specific date.
+- **Default sort flipped**: Properties table now defaults to Purchased,
+  oldest to newest (was newest-first) — same "click header to sort, click
+  again to flip" mechanism from last pass, just the default direction
+  changed.
+- **Click a tile to see the actual numbers behind it.** Every tile in the
+  property page's Financial Summary now expands on click (native
+  `<details>`/`<summary>`, no client JS — same zero-JS approach as the
+  hover explainers) to show the real inputs that particular number was
+  built from: Monthly Rent shows which PM statement line items or lease(s)
+  it summed; Cap Rate shows the annual NOI ÷ value math (and flags when
+  "value" is the VARE ARV instead of a real current estimate); DSCR and
+  Cash-on-Cash show their full numerator/denominator; Value shows its
+  source and as-of date; NOI shows either the projected-underwriting math
+  or the actual months-averaged math. `computePropertyMetrics()` now
+  returns the intermediate figures (`annualNoi`, `annualDebtService`,
+  `cashInvested`, `capRateValue`/`capRateValueIsArv`) so the page doesn't
+  recompute anything the metrics library already worked out — one source of
+  truth for both the headline number and its breakdown.
+
+**Still needs a Turso token to reach production** — everything above is
+either code (auto-deploys on push) or local `dev.db` data. The following
+data changes (this pass and last pass combined) are only in `seed.ts` /
+local `dev.db` and still need to be pushed to the live database: the 9 unit
+rows fixing door counts (738 S. Washington, 225 S Kingston, 110-112 S.
+Buckeye St), the Buckeye underwriting model row, its 21 maintenance/capex
+line items, and the 6 properties' backfilled `current_value_as_of` dates.
+Send a fresh Turso token (see prior passes' note on platform-vs-database
+tokens) and I'll push all of it in one pass.
+
+Verified with `tsc --noEmit`, `npm run build`, and a local smoke test
+against `dev.db` (patched locally with this pass's data changes) — checked
+the Buckeye cap rate math by hand, confirmed the ARV-vs-real-value labeling
+switches correctly between Buckeye (has a real estimate) and 615 Cherry (no
+real estimate yet, so it falls back to ARV), and clicked through several
+tiles' breakdowns against the underlying data — before pushing.
+
+
 
 ## Twentieth pass: door count fix, sortable Properties table, projected NOI/cap rate, monthly opex, value "as of", tile tooltip cleanup
 

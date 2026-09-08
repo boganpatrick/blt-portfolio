@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageNav";
-import { MetricTile } from "@/components/MetricTile";
+import { MetricTile, BreakdownRow } from "@/components/MetricTile";
 import {
   getCurrentRentDetailByProperty, getNoiByProperty, computePropertyMetrics,
   monthlyPrincipalAndInterest, resolveCurrentRent, METRIC_TOOLTIPS,
@@ -114,7 +114,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   // src/lib/metrics.ts): don't trust a PM statement's rent figure when it
   // falls in the same calendar month a lease started — that's almost
   // always a prorated partial-month payment, not the real monthly rent.
-  const { amount: currentRent } = resolveCurrentRent({
+  const { amount: currentRent, source: rentSource } = resolveCurrentRent({
     pmRent: rentDetail ? { amount: rentDetail.amount, asOf: rentDetail.asOf } : undefined,
     leaseRent: leaseRentTotal || null,
     mostRecentLeaseStart,
@@ -150,36 +150,131 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           </span>
         </section>
 
-        {/* Financial summary */}
+        {/* Financial summary — every tile expands on click to show the
+            actual numbers it was built from, not just the hover explainer. */}
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Financial Summary</h2>
+          <p className="mb-3 text-xs text-zinc-400">Hover any tile for what it means; click a tile to see the numbers behind it.</p>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <MetricTile
               label="Value"
               value={fmt(property.currentEstValue)}
-              sublabel={property.currentValueAsOf ? `as of ${property.currentValueAsOf}` : undefined}
+              sublabel={property.currentValueAsOf ? `as of ${property.currentValueAsOf}` : property.currentValueSource ?? undefined}
               tooltip={METRIC_TOOLTIPS.value}
+              breakdown={
+                <>
+                  <BreakdownRow label="Source" value={property.currentValueSource ?? "not specified"} />
+                  <BreakdownRow label="As of" value={property.currentValueAsOf ?? "not on file"} />
+                </>
+              }
             />
-            <MetricTile label="Debt" value={fmt(loan?.currentBalance)} tooltip={METRIC_TOOLTIPS.debt} />
-            <MetricTile label="Equity" value={fmt(equity)} valueClassName="text-emerald-700" tooltip={METRIC_TOOLTIPS.equity} />
-            <MetricTile label="Monthly Rent" value={fmt(currentRent)} tooltip={METRIC_TOOLTIPS.monthlyRent} />
+            <MetricTile
+              label="Debt"
+              value={fmt(loan?.currentBalance)}
+              tooltip={METRIC_TOOLTIPS.debt}
+              breakdown={loan ? (
+                <>
+                  <BreakdownRow label="Lender" value={loan.lender ?? "—"} />
+                  <BreakdownRow label="Balance as of" value={loan.balanceAsOf ?? "—"} />
+                  <BreakdownRow label="Original loan amount" value={fmt(loan.originalAmount)} />
+                  <BreakdownRow label="Rate" value={loan.rate != null ? pct(loan.rate) : "—"} />
+                </>
+              ) : (
+                <BreakdownRow label="No loan on file" value="cash purchase" />
+              )}
+            />
+            <MetricTile
+              label="Equity"
+              value={fmt(equity)}
+              valueClassName="text-emerald-700"
+              tooltip={METRIC_TOOLTIPS.equity}
+              breakdown={
+                <>
+                  <BreakdownRow label="Value" value={fmt(value)} />
+                  <BreakdownRow label="− Debt" value={fmt(debt)} />
+                  <BreakdownRow label="= Equity" value={fmt(equity)} />
+                </>
+              }
+            />
+            <MetricTile
+              label="Monthly Rent"
+              value={fmt(currentRent)}
+              tooltip={METRIC_TOOLTIPS.monthlyRent}
+              breakdown={
+                <>
+                  <BreakdownRow
+                    label="Source used"
+                    value={rentSource === "pm" ? "PM statement" : rentSource === "lease" ? "lease" : rentSource === "estimate" ? "VARE estimate" : "none"}
+                  />
+                  {rentSource === "pm" && rentDetail && (
+                    <>
+                      {rentDetail.byLabel.map((b) => <BreakdownRow key={b.label} label={b.label} value={fmt(b.amount)} />)}
+                      <BreakdownRow label="As of" value={rentDetail.asOf} />
+                    </>
+                  )}
+                  {rentSource === "lease" && activeLeases.map((l) => (
+                    <BreakdownRow key={l.id} label={l.tenantName ?? "(no tenant on file)"} value={fmt((l.rentAmount ?? 0) + (l.petRent ?? 0))} />
+                  ))}
+                  {rentSource === "estimate" && <BreakdownRow label="VARE projected rent" value={fmt(underwriting?.projectedMonthlyRent)} />}
+                  {rentSource === null && <BreakdownRow label="No rent source on file" value="—" />}
+                </>
+              }
+            />
             <MetricTile
               label="Monthly PITI"
               value={fmt(monthlyPiti)}
               sublabel={monthlyPiti !== null && !pitiComplete ? <span className="text-amber-600">partial</span> : undefined}
               tooltip={METRIC_TOOLTIPS.monthlyPiti}
+              breakdown={loan ? (
+                <>
+                  <BreakdownRow label="Principal & Interest" value={pAndI.known ? fmt(pAndI.value) : "not enough loan data"} />
+                  <BreakdownRow label="Tax escrow" value={fmt(loan.monthlyTaxEscrow)} />
+                  <BreakdownRow label="Insurance escrow" value={fmt(loan.monthlyInsuranceEscrow)} />
+                  <BreakdownRow label="= Monthly PITI" value={fmt(monthlyPiti)} />
+                </>
+              ) : (
+                <BreakdownRow label="No loan on file" value="cash purchase" />
+              )}
             />
             <MetricTile
               label="Monthly Op Ex"
               value={fmt(metrics.opexMonthlyAvg)}
               sublabel={metrics.opexMonthlyAvg !== null ? `${metrics.noiMonths}mo avg` : undefined}
               tooltip={METRIC_TOOLTIPS.opex}
+              breakdown={metrics.opexMonthlyAvg !== null ? (
+                <>
+                  <BreakdownRow label="Averaged over" value={`${metrics.noiMonths} statement month${metrics.noiMonths === 1 ? "" : "s"}`} />
+                  <BreakdownRow label="Since in service" value={property.putIntoServiceDate ?? "purchase"} />
+                  <BreakdownRow label="Total over that span" value={fmt(metrics.opexMonthlyAvg * metrics.noiMonths)} />
+                </>
+              ) : (
+                <BreakdownRow label="No PM statement data yet" value="—" />
+              )}
             />
             <MetricTile
               label="NOI/mo"
               value={fmt(metrics.noiMonthlyAvg)}
               sublabel={metrics.noiIsProjected ? <span className="text-amber-600">projected</span> : metrics.noiMonthlyAvg !== null ? `${metrics.noiMonths}mo avg` : undefined}
               tooltip={METRIC_TOOLTIPS.noi}
+              breakdown={
+                metrics.noiIsProjected ? (
+                  <>
+                    <BreakdownRow label="VARE projected rent" value={fmt(underwriting?.projectedMonthlyRent)} />
+                    <BreakdownRow label="− Vacancy" value={pct(underwriting?.vacancyPct)} />
+                    <BreakdownRow label="− Repair" value={pct(underwriting?.repairPct)} />
+                    <BreakdownRow label="− PM fee" value={pct(underwriting?.pmFeePct)} />
+                    <BreakdownRow label="= Projected NOI/mo" value={fmt(metrics.noiMonthlyAvg)} />
+                  </>
+                ) : metrics.noiMonthlyAvg !== null ? (
+                  <>
+                    <BreakdownRow label="Averaged over" value={`${metrics.noiMonths} statement month${metrics.noiMonths === 1 ? "" : "s"}`} />
+                    <BreakdownRow label="Since in service" value={property.putIntoServiceDate ?? "purchase"} />
+                    <BreakdownRow label="Total (income − opex) over that span" value={fmt(metrics.noiMonthlyAvg * metrics.noiMonths)} />
+                  </>
+                ) : (
+                  <BreakdownRow label="No PM statement or underwriting data yet" value="—" />
+                )
+              }
             />
             <MetricTile
               label="Cap Rate"
@@ -187,20 +282,61 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
               sublabel={metrics.noiIsProjected && metrics.capRate !== null ? <span className="text-amber-600">projected</span> : undefined}
               tooltip={METRIC_TOOLTIPS.capRate}
               highlight
+              breakdown={metrics.capRate !== null ? (
+                <>
+                  <BreakdownRow label="Annual NOI" value={fmt(metrics.annualNoi)} />
+                  <BreakdownRow label={metrics.capRateValueIsArv ? "÷ Value (VARE ARV)" : "÷ Value"} value={fmt(metrics.capRateValue)} />
+                  <BreakdownRow label="= Cap Rate" value={pct(metrics.capRate)} />
+                </>
+              ) : (
+                <BreakdownRow label="Not enough data yet" value="—" />
+              )}
             />
             <MetricTile
               label="Cash-on-Cash"
               value={pct(metrics.cashOnCash)}
               sublabel={metrics.noiIsProjected && metrics.cashOnCash !== null ? <span className="text-amber-600">projected</span> : undefined}
               tooltip={METRIC_TOOLTIPS.cashOnCash}
+              breakdown={metrics.cashOnCash !== null ? (
+                <>
+                  <BreakdownRow label="Annual NOI" value={fmt(metrics.annualNoi)} />
+                  <BreakdownRow label="− Annual debt service" value={fmt(metrics.annualDebtService)} />
+                  <BreakdownRow label="÷ Cash invested (purchase + rehab spent)" value={fmt(metrics.cashInvested)} />
+                  <BreakdownRow label="= Cash-on-Cash" value={pct(metrics.cashOnCash)} />
+                </>
+              ) : (
+                <BreakdownRow label="Not enough data yet" value="—" />
+              )}
             />
             <MetricTile
               label="DSCR"
               value={metrics.dscr === null ? "—" : metrics.dscr.toFixed(2)}
               sublabel={metrics.noiIsProjected && metrics.dscr !== null ? <span className="text-amber-600">projected</span> : undefined}
               tooltip={METRIC_TOOLTIPS.dscr}
+              breakdown={metrics.dscr !== null ? (
+                <>
+                  <BreakdownRow label="Annual NOI" value={fmt(metrics.annualNoi)} />
+                  <BreakdownRow label="÷ Annual PITI" value={fmt(metrics.annualDebtService)} />
+                  <BreakdownRow label="= DSCR" value={metrics.dscr.toFixed(2)} />
+                </>
+              ) : (
+                <BreakdownRow label="Not enough data yet" value="—" />
+              )}
             />
-            <MetricTile label="Appreciation" value={pct(metrics.appreciationPct)} tooltip={METRIC_TOOLTIPS.appreciation} />
+            <MetricTile
+              label="Appreciation"
+              value={pct(metrics.appreciationPct)}
+              tooltip={METRIC_TOOLTIPS.appreciation}
+              breakdown={metrics.appreciationPct !== null ? (
+                <>
+                  <BreakdownRow label="Current value" value={fmt(value)} />
+                  <BreakdownRow label="÷ Purchase price" value={fmt(property.purchasePrice)} />
+                  <BreakdownRow label="− 1 = Appreciation" value={pct(metrics.appreciationPct)} />
+                </>
+              ) : (
+                <BreakdownRow label="Not enough data yet" value="—" />
+              )}
+            />
           </div>
         </section>
 

@@ -140,7 +140,7 @@ const SORT_KEYS = ["address", "entity", "status", "pm", "purchased", "value", "d
 type SortKey = typeof SORT_KEYS[number];
 type SortDir = "asc" | "desc";
 const DEFAULT_SORT: SortKey = "purchased";
-const DEFAULT_DIR: SortDir = "desc";
+const DEFAULT_DIR: SortDir = "asc";
 
 function sortValue(row: PortfolioRow, key: SortKey): string | number {
   switch (key) {
@@ -326,7 +326,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
                     </td>
                     <td className="px-4 py-2 text-right">
                       {fmt(property.currentEstValue)}
-                      {property.currentValueAsOf && <div className="text-xs font-normal text-zinc-400">as of {property.currentValueAsOf}</div>}
+                      {property.currentValueAsOf ? (
+                        <div className="text-xs font-normal text-zinc-400">as of {property.currentValueAsOf}</div>
+                      ) : property.currentValueSource ? (
+                        <div className="text-xs font-normal text-zinc-400">{property.currentValueSource}</div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-2 text-right">{fmt(loan?.currentBalance)}</td>
                     <td className="px-4 py-2 text-right font-medium text-emerald-700">{fmt(equity)}</td>

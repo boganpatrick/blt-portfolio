@@ -48,6 +48,7 @@ FILES = {
     "VARE_225_S_Kingston_Kokomo_20250924.xlsx": "225 S Kingston",
     "VARE_2000_S_Buckeye_Kokomo_20250731.xlsx": "2000 S Buckeye",
     "VARE_4076_S_450E_Hemlock_20250731.xlsx": "4076 S 450 E",
+    "VARE_110_112_S._Buckeye_Kokomo.xlsx": "110-112 S. Buckeye St",
 }
 
 
