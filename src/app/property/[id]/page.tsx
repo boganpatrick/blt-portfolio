@@ -92,7 +92,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   const noiByProperty = await getNoiByProperty();
   const rentDetail = (await getCurrentRentDetailByProperty())[id];
-  const metrics = computePropertyMetrics({ property, loan, noi: noiByProperty[id] });
+  const metrics = computePropertyMetrics({ property, loan, noi: noiByProperty[id], underwriting });
 
   const debt = loan?.currentBalance ?? 0;
   const value = property.currentEstValue ?? 0;
@@ -154,7 +154,12 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Financial Summary</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <MetricTile label="Value" value={fmt(property.currentEstValue)} tooltip={METRIC_TOOLTIPS.value} />
+            <MetricTile
+              label="Value"
+              value={fmt(property.currentEstValue)}
+              sublabel={property.currentValueAsOf ? `as of ${property.currentValueAsOf}` : undefined}
+              tooltip={METRIC_TOOLTIPS.value}
+            />
             <MetricTile label="Debt" value={fmt(loan?.currentBalance)} tooltip={METRIC_TOOLTIPS.debt} />
             <MetricTile label="Equity" value={fmt(equity)} valueClassName="text-emerald-700" tooltip={METRIC_TOOLTIPS.equity} />
             <MetricTile label="Monthly Rent" value={fmt(currentRent)} tooltip={METRIC_TOOLTIPS.monthlyRent} />
@@ -165,14 +170,36 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
               tooltip={METRIC_TOOLTIPS.monthlyPiti}
             />
             <MetricTile
+              label="Monthly Op Ex"
+              value={fmt(metrics.opexMonthlyAvg)}
+              sublabel={metrics.opexMonthlyAvg !== null ? `${metrics.noiMonths}mo avg` : undefined}
+              tooltip={METRIC_TOOLTIPS.opex}
+            />
+            <MetricTile
               label="NOI/mo"
               value={fmt(metrics.noiMonthlyAvg)}
-              sublabel={metrics.noiMonthlyAvg !== null ? `${metrics.noiMonths}mo avg` : undefined}
+              sublabel={metrics.noiIsProjected ? <span className="text-amber-600">projected</span> : metrics.noiMonthlyAvg !== null ? `${metrics.noiMonths}mo avg` : undefined}
               tooltip={METRIC_TOOLTIPS.noi}
             />
-            <MetricTile label="Cap Rate" value={pct(metrics.capRate)} tooltip={METRIC_TOOLTIPS.capRate} highlight />
-            <MetricTile label="Cash-on-Cash" value={pct(metrics.cashOnCash)} tooltip={METRIC_TOOLTIPS.cashOnCash} />
-            <MetricTile label="DSCR" value={metrics.dscr === null ? "—" : metrics.dscr.toFixed(2)} tooltip={METRIC_TOOLTIPS.dscr} />
+            <MetricTile
+              label="Cap Rate"
+              value={pct(metrics.capRate)}
+              sublabel={metrics.noiIsProjected && metrics.capRate !== null ? <span className="text-amber-600">projected</span> : undefined}
+              tooltip={METRIC_TOOLTIPS.capRate}
+              highlight
+            />
+            <MetricTile
+              label="Cash-on-Cash"
+              value={pct(metrics.cashOnCash)}
+              sublabel={metrics.noiIsProjected && metrics.cashOnCash !== null ? <span className="text-amber-600">projected</span> : undefined}
+              tooltip={METRIC_TOOLTIPS.cashOnCash}
+            />
+            <MetricTile
+              label="DSCR"
+              value={metrics.dscr === null ? "—" : metrics.dscr.toFixed(2)}
+              sublabel={metrics.noiIsProjected && metrics.dscr !== null ? <span className="text-amber-600">projected</span> : undefined}
+              tooltip={METRIC_TOOLTIPS.dscr}
+            />
             <MetricTile label="Appreciation" value={pct(metrics.appreciationPct)} tooltip={METRIC_TOOLTIPS.appreciation} />
           </div>
         </section>

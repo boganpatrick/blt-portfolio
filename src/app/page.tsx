@@ -8,7 +8,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageNav";
 import {
   getCurrentRentByProperty, getNoiByProperty, computePropertyMetrics,
-  monthlyPrincipalAndInterest, getHouseholdPctByEntity, resolveCurrentRent, type PropertyMetrics,
+  monthlyPrincipalAndInterest, getHouseholdPctByEntity, resolveCurrentRent, METRIC_TOOLTIPS, type PropertyMetrics,
 } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +95,7 @@ async function getPortfolio() {
     // so the dashboard can be honest about when a PITI figure is partial.
     const pitiComplete = pAndI.known && loan?.monthlyTaxEscrow != null && loan?.monthlyInsuranceEscrow != null;
 
-    const metrics: PropertyMetrics = computePropertyMetrics({ property: p, loan, noi: noiByProperty[p.id] });
+    const metrics: PropertyMetrics = computePropertyMetrics({ property: p, loan, noi: noiByProperty[p.id], underwriting });
 
     return { property: p, entity, loan, pm, underwriting, equity, currentRent, rentIsEstimate, rentSource, monthlyPiti, pitiComplete, metrics, doorCount };
   });
@@ -132,6 +132,66 @@ async function getPortfolio() {
   return { rows, rentalRows, pendingRows, totalDoors, totalValue, totalDebt, totalEquity, householdValue, householdDebt, householdEquity };
 }
 
+// ---------- Properties table sorting (server-rendered via ?sort=&dir=,
+// no client JS needed — clicking a header just navigates with new query
+// params). Defaults to acquisition date, most recent first.
+type PortfolioRow = Awaited<ReturnType<typeof getPortfolio>>["rentalRows"][number];
+const SORT_KEYS = ["address", "entity", "status", "pm", "purchased", "value", "debt", "equity", "rent", "caprate"] as const;
+type SortKey = typeof SORT_KEYS[number];
+type SortDir = "asc" | "desc";
+const DEFAULT_SORT: SortKey = "purchased";
+const DEFAULT_DIR: SortDir = "desc";
+
+function sortValue(row: PortfolioRow, key: SortKey): string | number {
+  switch (key) {
+    case "address": return row.property.address;
+    case "entity": return row.entity?.name ?? "";
+    case "status": return row.property.status;
+    case "pm": return row.pm?.name ?? "";
+    case "purchased": return row.property.purchaseDate ?? "";
+    case "value": return row.property.currentEstValue ?? -Infinity;
+    case "debt": return row.loan?.currentBalance ?? -Infinity;
+    case "equity": return row.equity ?? -Infinity;
+    case "rent": return row.currentRent ?? -Infinity;
+    case "caprate": return row.metrics.capRate ?? -Infinity;
+  }
+}
+
+function sortRows(rows: PortfolioRow[], key: SortKey, dir: SortDir): PortfolioRow[] {
+  const sorted = [...rows].sort((a, b) => {
+    const av = sortValue(a, key);
+    const bv = sortValue(b, key);
+    const cmp = typeof av === "string" && typeof bv === "string" ? av.localeCompare(bv) : (av as number) - (bv as number);
+    return cmp;
+  });
+  return dir === "desc" ? sorted.reverse() : sorted;
+}
+
+function SortableHeader({
+  label, sortKey: key, currentSort, currentDir, align, title,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSort: SortKey;
+  currentDir: SortDir;
+  align?: "right";
+  title?: string;
+}) {
+  const active = currentSort === key;
+  const nextDir: SortDir = active && currentDir === "asc" ? "desc" : "asc";
+  return (
+    <th className={`px-4 py-2 ${align === "right" ? "text-right" : ""}`} title={title}>
+      <Link
+        href={`/?sort=${key}&dir=${nextDir}`}
+        className={`inline-flex items-center gap-1 hover:text-zinc-900 ${active ? "text-zinc-900" : ""}`}
+      >
+        {label}
+        {active && <span className="text-[10px]">{currentDir === "asc" ? "▲" : "▼"}</span>}
+      </Link>
+    </th>
+  );
+}
+
 function fmt(n: number | null | undefined) {
   if (n === null || n === undefined) return "—";
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -160,8 +220,13 @@ const statusColor: Record<string, string> = {
   sold: "bg-zinc-200 text-zinc-600",
 };
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ sort?: string; dir?: string }> }) {
+  const sp = await searchParams;
+  const sortKey: SortKey = (SORT_KEYS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as SortKey) : DEFAULT_SORT;
+  const sortDir: SortDir = sp.dir === "asc" || sp.dir === "desc" ? sp.dir : DEFAULT_DIR;
+
   const { rentalRows, pendingRows, totalDoors, totalValue, totalDebt, totalEquity, householdValue, householdDebt, householdEquity } = await getPortfolio();
+  const sortedRentalRows = sortRows(rentalRows, sortKey, sortDir);
   const hasOutsidePartner = Math.round(householdEquity) !== Math.round(totalEquity);
 
   return (
@@ -228,21 +293,21 @@ export default async function Home() {
             <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
-                  <th className="px-4 py-2">Address</th>
-                  <th className="px-4 py-2">Entity</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">PM</th>
-                  <th className="px-4 py-2">Purchased</th>
-                  <th className="px-4 py-2 text-right">Value</th>
-                  <th className="px-4 py-2 text-right">Debt</th>
-                  <th className="px-4 py-2 text-right">Equity</th>
-                  <th className="px-4 py-2 text-right">Monthly Rent</th>
-                  <th className="px-4 py-2 text-right">Cap Rate</th>
+                  <SortableHeader label="Address" sortKey="address" currentSort={sortKey} currentDir={sortDir} />
+                  <SortableHeader label="Entity" sortKey="entity" currentSort={sortKey} currentDir={sortDir} />
+                  <SortableHeader label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} />
+                  <SortableHeader label="PM" sortKey="pm" currentSort={sortKey} currentDir={sortDir} />
+                  <SortableHeader label="Purchased" sortKey="purchased" currentSort={sortKey} currentDir={sortDir} title={METRIC_TOOLTIPS.purchased} />
+                  <SortableHeader label="Value" sortKey="value" currentSort={sortKey} currentDir={sortDir} align="right" title={METRIC_TOOLTIPS.value} />
+                  <SortableHeader label="Debt" sortKey="debt" currentSort={sortKey} currentDir={sortDir} align="right" title={METRIC_TOOLTIPS.debt} />
+                  <SortableHeader label="Equity" sortKey="equity" currentSort={sortKey} currentDir={sortDir} align="right" title={METRIC_TOOLTIPS.equity} />
+                  <SortableHeader label="Monthly Rent" sortKey="rent" currentSort={sortKey} currentDir={sortDir} align="right" title={METRIC_TOOLTIPS.monthlyRent} />
+                  <SortableHeader label="Cap Rate" sortKey="caprate" currentSort={sortKey} currentDir={sortDir} align="right" title={METRIC_TOOLTIPS.capRate} />
                   <th className="px-4 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {rentalRows.map(({ property, entity, loan, pm, equity, currentRent, rentSource, metrics }) => (
+                {sortedRentalRows.map(({ property, entity, loan, pm, equity, currentRent, rentSource, metrics }) => (
                   <Link key={property.id} href={`/property/${property.id}`} className="table-row hover:bg-zinc-50">
                     <td className="px-4 py-2 font-medium">
                       {property.address}
@@ -259,7 +324,10 @@ export default async function Home() {
                       {fmt(property.purchasePrice)}
                       <div className="text-xs font-normal text-zinc-400">{property.purchaseDate ?? "—"}</div>
                     </td>
-                    <td className="px-4 py-2 text-right">{fmt(property.currentEstValue)}</td>
+                    <td className="px-4 py-2 text-right">
+                      {fmt(property.currentEstValue)}
+                      {property.currentValueAsOf && <div className="text-xs font-normal text-zinc-400">as of {property.currentValueAsOf}</div>}
+                    </td>
                     <td className="px-4 py-2 text-right">{fmt(loan?.currentBalance)}</td>
                     <td className="px-4 py-2 text-right font-medium text-emerald-700">{fmt(equity)}</td>
                     <td className="px-4 py-2 text-right">
@@ -267,17 +335,16 @@ export default async function Home() {
                       {rentSource === "estimate" && <div className="text-xs font-normal text-amber-600">est.</div>}
                       {rentSource === "lease" && <div className="text-xs font-normal text-zinc-400">lease</div>}
                     </td>
-                    <td className="px-4 py-2 text-right">{pct(metrics.capRate)}</td>
+                    <td className="px-4 py-2 text-right">
+                      {pct(metrics.capRate)}
+                      {metrics.noiIsProjected && metrics.capRate !== null && <div className="text-xs font-normal text-amber-600">projected</div>}
+                    </td>
                     <td className="px-4 py-2 text-right text-zinc-300">&rsaquo;</td>
                   </Link>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-sm text-zinc-500">
-            Monthly Rent prefers the most recent PM statement rent transaction, falling back to the current lease (marked &quot;lease&quot;) and then the VARE underwriting projection (marked &quot;est.&quot;) when neither exists yet — blank means none of the three exists. PM column shows &quot;None&quot; when no property manager is assigned.
-            Cap Rate (annualized NOI ÷ value, from actual PM statement income/expenses) is the single best at-a-glance measure of a property&apos;s operating performance — click through for NOI, cash-on-cash, DSCR, appreciation, PITI, lease/tenant details, per-unit rent, and maintenance/capex history.
-          </p>
         </section>
 
         {/* Pending acquisitions — not real estate holdings yet, kept separate from the portfolio */}

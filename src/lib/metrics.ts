@@ -1,7 +1,7 @@
 import { db } from "@/db/client";
 import {
   pmReportLineItems, pmReports, normalizedCategories, properties, loans,
-  entities, entityOwnerships, owners,
+  entities, entityOwnerships, owners, underwritingModels,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -115,7 +115,16 @@ export function resolveCurrentRent(opts: {
 // per property, plus that month count, so callers can annualize and label
 // the result honestly ("annualized from N months of actual data") instead
 // of implying a full trailing-twelve-month figure.
-export async function getNoiByProperty(): Promise<Record<string, { monthlyAvg: number; months: number }>> {
+//
+// Statement periods before a property's putIntoServiceDate are excluded
+// from the average entirely — those are pre-rental rehab months that only
+// ever carry expenses (no rent yet), and folding them in drags the average
+// NOI down in a way that doesn't reflect ongoing performance. A property
+// with no putIntoServiceDate on file yet keeps all its periods, same as
+// before.
+export type NoiResult = { monthlyAvg: number; months: number; opexMonthlyAvg: number | null };
+
+export async function getNoiByProperty(): Promise<Record<string, NoiResult>> {
   const rows = await db
     .select({
       propertyId: pmReportLineItems.propertyId,
@@ -127,20 +136,26 @@ export async function getNoiByProperty(): Promise<Record<string, { monthlyAvg: n
     .innerJoin(normalizedCategories, eq(pmReportLineItems.normalizedCategoryId, normalizedCategories.id))
     .innerJoin(pmReports, eq(pmReportLineItems.reportId, pmReports.id));
 
+  const propRows = await db.select({ id: properties.id, putIntoServiceDate: properties.putIntoServiceDate }).from(properties);
+  const serviceDateById: Record<string, string | null> = Object.fromEntries(propRows.map((p) => [p.id, p.putIntoServiceDate]));
+
   type Row = { propertyId: string | null; group: string; amount: number; periodEnd: string };
-  const byProperty: Record<string, { net: number; periods: Set<string> }> = {};
+  const byProperty: Record<string, { net: number; opex: number; periods: Set<string> }> = {};
   for (const r of rows as Row[]) {
     if (!r.propertyId) continue;
     if (r.group !== "Income" && r.group !== "Operating Expense") continue;
-    if (!byProperty[r.propertyId]) byProperty[r.propertyId] = { net: 0, periods: new Set() };
+    const serviceDate = serviceDateById[r.propertyId];
+    if (serviceDate && r.periodEnd < serviceDate) continue;
+    if (!byProperty[r.propertyId]) byProperty[r.propertyId] = { net: 0, opex: 0, periods: new Set() };
     byProperty[r.propertyId].net += r.amount; // income positive, opex negative — already NOI-signed
+    if (r.group === "Operating Expense") byProperty[r.propertyId].opex += r.amount;
     byProperty[r.propertyId].periods.add(r.periodEnd);
   }
 
-  const result: Record<string, { monthlyAvg: number; months: number }> = {};
-  for (const [propertyId, { net, periods }] of Object.entries(byProperty)) {
+  const result: Record<string, NoiResult> = {};
+  for (const [propertyId, { net, opex, periods }] of Object.entries(byProperty)) {
     const months = Math.max(periods.size, 1);
-    result[propertyId] = { monthlyAvg: net / months, months };
+    result[propertyId] = { monthlyAvg: net / months, months, opexMonthlyAvg: -(opex / months) };
   }
   return result;
 }
@@ -167,6 +182,8 @@ export function monthlyPrincipalAndInterest(loan: typeof loans.$inferSelect | un
 export type PropertyMetrics = {
   noiMonthlyAvg: number | null;
   noiMonths: number;
+  noiIsProjected: boolean;
+  opexMonthlyAvg: number | null;
   capRate: number | null;
   dscr: number | null;
   cashOnCash: number | null;
@@ -176,11 +193,34 @@ export type PropertyMetrics = {
 export function computePropertyMetrics(opts: {
   property: typeof properties.$inferSelect;
   loan: typeof loans.$inferSelect | undefined;
-  noi: { monthlyAvg: number; months: number } | undefined;
+  noi: NoiResult | undefined;
+  underwriting?: typeof underwritingModels.$inferSelect | undefined;
 }): PropertyMetrics {
-  const { property, loan, noi } = opts;
-  const annualNoi = noi ? noi.monthlyAvg * 12 : null;
-  const value = property.currentEstValue ?? null;
+  const { property, loan, noi, underwriting } = opts;
+
+  let noiMonthlyAvg = noi?.monthlyAvg ?? null;
+  let noiIsProjected = false;
+  // No actual PM statement activity on file yet — usually because the
+  // property hasn't closed or hasn't been rented yet (e.g. still under
+  // contract, or mid-rehab like 110-112 S. Buckeye). Fall back to a
+  // projected NOI from the VARE underwriting model instead of showing a
+  // blank cap rate: projected rent, less vacancy, repairs, and PM fee —
+  // capex is excluded here too, matching how actual NOI treats it. This
+  // doesn't yet account for property tax/insurance, since those aren't
+  // finalized until financing closes.
+  if (noiMonthlyAvg === null && underwriting?.projectedMonthlyRent) {
+    const rent = underwriting.projectedMonthlyRent;
+    const drag = (underwriting.vacancyPct ?? 0) + (underwriting.repairPct ?? 0) + (underwriting.pmFeePct ?? 0);
+    noiMonthlyAvg = rent * (1 - drag);
+    noiIsProjected = true;
+  }
+
+  const annualNoi = noiMonthlyAvg !== null ? noiMonthlyAvg * 12 : null;
+  const actualValue = property.currentEstValue ?? null;
+  // Only reach for the underwriting model's ARV as a stand-in "value" when
+  // the NOI itself is also projected — otherwise a real cap rate would end
+  // up dividing actual NOI by a hypothetical post-rehab value.
+  const value = actualValue ?? (noiIsProjected ? underwriting?.arv ?? null : null);
 
   const capRate = annualNoi !== null && value ? annualNoi / value : null;
 
@@ -195,13 +235,18 @@ export function computePropertyMetrics(opts: {
     ? (annualNoi - annualDebtService) / cashInvested
     : null;
 
-  const appreciationPct = property.purchasePrice && value
-    ? value / property.purchasePrice - 1
+  // Appreciation always compares against the real current-value estimate,
+  // never the projected ARV fallback above — that's a hoped-for post-rehab
+  // value, not evidence of appreciation that's actually happened yet.
+  const appreciationPct = property.purchasePrice && actualValue
+    ? actualValue / property.purchasePrice - 1
     : null;
 
   return {
-    noiMonthlyAvg: noi?.monthlyAvg ?? null,
+    noiMonthlyAvg,
     noiMonths: noi?.months ?? 0,
+    noiIsProjected,
+    opexMonthlyAvg: noi?.opexMonthlyAvg ?? null,
     capRate,
     dscr,
     cashOnCash,
@@ -263,10 +308,11 @@ export const METRIC_TOOLTIPS = {
   equity: "Value minus debt.",
   monthlyRent: "Current monthly rent. Prefers the most recent PM statement rent transaction; falls back to the active lease (\"lease\"), then a VARE underwriting projection (\"est.\") when neither exists yet.",
   monthlyPiti: "Principal, Interest, Taxes & Insurance — the full monthly mortgage payment including escrowed tax and insurance. \"Partial\" means the loan's rate, term, original amount, or escrow figures aren't fully entered yet.",
-  noi: "Net Operating Income per month — actual rental income minus operating expenses, from PM statement data, averaged over however many months of statements are on file (excludes capital improvements and owner draws/contributions).",
-  capRate: "Capitalization Rate — annualized NOI ÷ current value. The standard way to compare a property's return independent of how it's financed.",
-  cashOnCash: "Annualized (NOI − annual debt service) ÷ cash invested (purchase price + rehab spent to date). Measures return on the actual cash put in, unlike cap rate.",
-  dscr: "Debt Service Coverage Ratio — annualized NOI ÷ annual PITI. Above 1.0 means rental income covers the mortgage payment; lenders typically want 1.2+.",
+  noi: "Net Operating Income per month — actual rental income minus operating expenses, from PM statement data, averaged over the months on file since the property was placed in service (excludes capital improvements, owner draws/contributions, and any pre-rental rehab months). When there's no PM statement history yet — not closed, or not rented — this is projected instead, from the VARE underwriting's rent, vacancy, repair, and PM-fee assumptions.",
+  opex: "Average monthly operating expenses from PM statement data — repairs, PM fee, utilities, etc. (excludes capital improvements and debt service), averaged over the months on file since the property was placed in service.",
+  capRate: "Capitalization Rate — annualized NOI ÷ current value. The standard way to compare a property's return independent of how it's financed. Projected (using the VARE underwriting's ARV as value) when there's no actual NOI yet.",
+  cashOnCash: "Annualized (NOI − annual debt service) ÷ cash invested (purchase price + rehab spent to date). Measures return on the actual cash put in, unlike cap rate. Projected when there's no actual NOI yet.",
+  dscr: "Debt Service Coverage Ratio — annualized NOI ÷ annual PITI. Above 1.0 means rental income covers the mortgage payment; lenders typically want 1.2+. Projected when there's no actual NOI yet.",
   appreciation: "Change in estimated value since purchase, as a percentage of the original purchase price.",
   purchased: "Purchase price and closing date.",
 } as const;

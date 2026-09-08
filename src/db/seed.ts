@@ -382,6 +382,28 @@ async function main() {
     { propertyId: division1139.id, label: "Side A (renewed lease)", bedrooms: 2, bathrooms: 1 },
     { propertyId: division1139.id, label: "Side B (month-to-month)", bedrooms: 2, bathrooms: 1 },
   ]).returning();
+  // Multi-unit properties with no lease documents on file yet (so no lease
+  // rows below) still need real unit records so the dashboard's door count
+  // is correct — bed/bath split straight from each property's propertyType
+  // string. Patrick confirmed the counts: 738 S. Washington and 1139
+  // Division St are both duplexes (2 doors), 225 S Kingston is a triplex (3
+  // doors), and 110-112 S. Buckeye St is a 4-unit mixed-use building (1
+  // apartment + 3 office suites).
+  await db.insert(units).values([
+    { propertyId: wash738.id, label: "Unit A", bedrooms: 2, bathrooms: 1 },
+    { propertyId: wash738.id, label: "Unit B", bedrooms: 1, bathrooms: 1 },
+  ]);
+  await db.insert(units).values([
+    { propertyId: kingston.id, label: "Unit 1", bedrooms: 2, bathrooms: 1 },
+    { propertyId: kingston.id, label: "Unit 2", bedrooms: 1, bathrooms: 1 },
+    { propertyId: kingston.id, label: "Unit 3", bedrooms: 1, bathrooms: 1 },
+  ]);
+  await db.insert(units).values([
+    { propertyId: buckeyeBldg.id, label: "Apartment", bedrooms: 2, bathrooms: 2 },
+    { propertyId: buckeyeBldg.id, label: "Office Suite 1" },
+    { propertyId: buckeyeBldg.id, label: "Office Suite 2" },
+    { propertyId: buckeyeBldg.id, label: "Office Suite 3" },
+  ]);
 
   await db.insert(leases).values([
     {

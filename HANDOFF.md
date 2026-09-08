@@ -1,4 +1,61 @@
-# BLT Portfolio Manager — handoff notes (updated 2026-09-08, nineteenth pass)
+# BLT Portfolio Manager — handoff notes (updated 2026-09-08, twentieth pass)
+
+## Twentieth pass: door count fix, sortable Properties table, projected NOI/cap rate, monthly opex, value "as of", tile tooltip cleanup
+
+- **Door count was wrong** for the multi-unit properties that don't have
+  lease documents on file — the `units` table simply had no rows for them,
+  so the dashboard's "at least 1 door" fallback undercounted 738 S.
+  Washington (duplex, was showing 1), 225 S Kingston (triplex, was showing
+  1), and 110-112 S. Buckeye St (4-unit mixed-use, was showing 1). Added
+  real unit records for all of them in `seed.ts` (bed/bath split straight
+  from each property's `propertyType` string; the 3 office suites at
+  Buckeye have no bed/bath) — portfolio door count is now 18 across the 11
+  rental properties. **This is a data-only fix and still needs to be
+  applied to the production Turso database** — I don't have a current Turso
+  token this session (see prior passes' note on platform-vs-database
+  tokens). Send a fresh one and I'll push the same 9 unit rows there.
+- **Properties table is now sortable** — click any column header to sort by
+  it (click again to flip direction), all server-rendered via `?sort=&dir=`
+  query params, no client JS. Defaults to Purchased, most recent first.
+- **NOI averaging now excludes pre-rental months.** `getNoiByProperty()`
+  used to average every PM-statement period on file, including months
+  before a property was actually placed in service (rehab months that only
+  ever have expenses, no rent) — that dragged the average down. Now filters
+  out any period before `properties.putIntoServiceDate`. Example: 808
+  Maumee had 3 such expense-only months before its 3/24/2026 in-service
+  date; NOI/mo is now averaged over the 5 real months since, not 8.
+- **Projected NOI/cap rate for not-yet-rented properties.** A property with
+  no PM statement history yet (not closed, or still mid-rehab, e.g. 615
+  Cherry under contract) now shows a projected NOI and cap rate instead of
+  a blank, computed from the VARE underwriting model's rent/vacancy/repair/
+  PM-fee assumptions (capex excluded, same as actual NOI) and labeled
+  "projected" in amber wherever it appears. Cap rate falls back to the
+  underwriting's ARV as "value" only when the NOI itself is projected too.
+  Note: 110-112 S. Buckeye St, which Patrick mentioned as an example, has
+  no VARE underwriting file on record yet — this only produces a projection
+  where an underwriting model actually exists (currently 615 Cherry and the
+  8 properties in seed.ts that already had one).
+- **Monthly Op Ex** — new tile on the property page (average monthly
+  operating expenses from PM statement data, same in-service-date filter as
+  NOI above).
+- **Value "as of"** — the Value tile (property page) and Value column
+  (dashboard) now show the `currentValueAsOf` date under the number when
+  one's on file.
+- **Removed the explanatory paragraph** under the dashboard's Properties
+  table (Monthly Rent priority / PM "None" / Cap Rate meaning) — that info
+  now lives in each sortable column header's native tooltip (hover the
+  header) instead of a permanent block of text under the table.
+- **MetricTile**: dropped the little "?" icon — hovering (or tabbing to)
+  anywhere on the tile already revealed the explainer since the whole tile
+  was the hover target, so the icon was redundant. Removing it also freed
+  up room for the busier 11-tile grid on the property page.
+
+Verified with `tsc --noEmit`, `npm run build`, and a local smoke test
+(door counts, sort-by-value ordering, projected 615 Cherry NOI/cap rate
+math, 808 Maumee's NOI-averaging fix, and the Value "as of" line all
+checked against hand-computed expected numbers) before pushing.
+
+
 
 ## Nineteenth pass: GitHub connected, dashboard decluttered, property page's Financial Summary reworked with tooltips
 
