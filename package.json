@@ -4,9 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run verify && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate:data": "tsx scripts/validate_data.ts",
+    "verify": "npm run test && npm run validate:data",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -31,6 +36,7 @@
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }

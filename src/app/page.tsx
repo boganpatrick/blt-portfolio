@@ -8,7 +8,8 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageNav";
 import {
   getCurrentRentByProperty, getNoiByProperty, computePropertyMetrics,
-  monthlyPrincipalAndInterest, getHouseholdPctByEntity, resolveCurrentRent, METRIC_TOOLTIPS, type PropertyMetrics,
+  monthlyPrincipalAndInterest, getHouseholdPctByEntity, resolveCurrentRent, computeMetricWarnings,
+  METRIC_TOOLTIPS, type PropertyMetrics,
 } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
@@ -96,8 +97,9 @@ async function getPortfolio() {
     const pitiComplete = pAndI.known && loan?.monthlyTaxEscrow != null && loan?.monthlyInsuranceEscrow != null;
 
     const metrics: PropertyMetrics = computePropertyMetrics({ property: p, loan, noi: noiByProperty[p.id], underwriting });
+    const warnings = computeMetricWarnings({ property: p, loan, metrics });
 
-    return { property: p, entity, loan, pm, underwriting, equity, currentRent, rentIsEstimate, rentSource, monthlyPiti, pitiComplete, metrics, doorCount };
+    return { property: p, entity, loan, pm, underwriting, equity, currentRent, rentIsEstimate, rentSource, monthlyPiti, pitiComplete, metrics, warnings, doorCount };
   });
 
   // "under_contract" properties are pending acquisitions, not real estate
@@ -288,7 +290,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
 
         {/* Properties */}
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Properties</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            Properties
+            {rentalRows.some((r) => r.warnings.length > 0) && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium normal-case tracking-normal text-amber-800">
+                ⚠ {rentalRows.filter((r) => r.warnings.length > 0).length} flagged
+              </span>
+            )}
+          </h2>
           <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
             <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
@@ -307,9 +316,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {sortedRentalRows.map(({ property, entity, loan, pm, equity, currentRent, rentSource, metrics }) => (
+                {sortedRentalRows.map(({ property, entity, loan, pm, equity, currentRent, rentSource, metrics, warnings }) => (
                   <Link key={property.id} href={`/property/${property.id}`} className="table-row hover:bg-zinc-50">
                     <td className="px-4 py-2 font-medium">
+                      {warnings.length > 0 && (
+                        <span title={warnings.map((w) => w.message).join(" ")} className="mr-1 text-amber-500">⚠</span>
+                      )}
                       {property.address}
                       <div className="text-xs text-zinc-400">{property.propertyType}</div>
                     </td>

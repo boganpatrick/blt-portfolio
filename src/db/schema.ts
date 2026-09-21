@@ -147,6 +147,13 @@ export const loans = sqliteTable("loans", {
   originationDate: text("origination_date"),
   rate: real("rate"),
   termMonths: integer("term_months"),
+  // True for interest-only loans (bridge/hard-money loans especially) —
+  // monthlyPrincipalAndInterest() must NOT run the standard amortization
+  // formula for these: amortizing a loan over a short term_months (e.g. a
+  // 9-month hard money bridge loan) produces a wildly wrong monthly payment
+  // (paying off the full principal in 9 months), not the real interest-only
+  // payment. See src/lib/metrics.ts.
+  interestOnly: integer("interest_only", { mode: "boolean" }).notNull().default(false),
   prepayPenaltyTerms: text("prepay_penalty_terms"),
   currentBalance: real("current_balance"),
   balanceAsOf: text("balance_as_of"),

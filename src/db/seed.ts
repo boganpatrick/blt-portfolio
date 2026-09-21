@@ -562,7 +562,11 @@ async function main() {
       // "Nation Loan Funding LLC" (no "-al"), corrected from earlier notes.
       propertyId: cherry615.id, lender: "Nation Loan Funding LLC", loanType: "hard money",
       originalAmount: 180646, originationDate: "2026-09-17",
-      rate: 0.109, termMonths: 9,
+      rate: 0.109, termMonths: 9, interestOnly: true,
+      // interestOnly is essential here — without it, monthlyPrincipalAndInterest()
+      // amortizes the loan to fully pay off over termMonths (9), which
+      // produces a ~$21k/mo "payment" instead of the real ~$1,641/mo
+      // interest-only payment. Caught by Patrick 2026-09-21.
       prepayPenaltyTerms: "None (per term sheet)",
       // currentBalance = actual funded principal at closing: $144,415
       // initial funding, NOT the $180,646 originalAmount, since that total

@@ -46,6 +46,10 @@ dev.db-shm
 dev.db-wal
 dev.db-journal
 
+# scratch dir used by scripts/validate_data.ts (regression test / data
+# validation script) — always regenerated, never meant to be committed
+.validate-scratch
+
 # Raw source documents (closing statements, ALTA settlements, QuickBooks
 # exports, VARE underwriting files, PM statements) and one-off deliverables
 # built from them — Patrick's confidential financial/legal documents, used

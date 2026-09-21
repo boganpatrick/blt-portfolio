@@ -1,4 +1,4 @@
-# RPM (Rental Property Management) — handoff notes (updated 2026-09-20, twenty-third pass)
+# RPM (Rental Property Management) — handoff notes (updated 2026-09-21, twenty-fourth pass)
 
 > **App name**: Patrick named this app "RPM" (Rental Property Management)
 > 2026-09-20 — refer to it that way going forward. It's on the front page
@@ -7,6 +7,79 @@
 > data/comments as the subject matter, and the repo/Vercel project/domain
 > are still named `blt-portfolio` — only the app's own displayed name
 > changed, not the infra names).
+
+> **⚠️ CRITICAL — `drizzle-kit push --force` against production can silently
+> DELETE a table's data**, not just alter its schema. This happened for
+> real 2026-09-21: adding `loans.interest_only` (a simple nullable-with-
+> default boolean column) caused drizzle-kit to recreate the `loans` table
+> instead of a plain `ALTER TABLE ... ADD COLUMN`, and `--force` skipped
+> past the data-loss prompt — all 12 loan rows were gone until manually
+> recovered from `seed.ts` (see "Twenty-fourth pass" below). **Before
+> running `drizzle-kit push --force` against the Turso production
+> database again**: (1) dump the affected table(s) to a JSON file first
+> (a two-line `SELECT * FROM <table>` via `@libsql/client`, written to a
+> scratch file — takes 10 seconds and costs nothing), or (2) run the push
+> without `--force` first and read what it says it's about to do, or
+> (3) if a column addition is genuinely simple, just run the `ALTER TABLE`
+> yourself instead of trusting drizzle-kit's diff. Don't skip this because
+> "it's just adding a column" — that's exactly what went wrong last time.
+
+## Twenty-fourth pass: fixed interest-only PITI bug + null-balance equity bug, added a regression test suite + CI + build-gate, survived a drizzle-kit data-loss incident
+
+- **Bug 1 — Monthly PITI showing ~$20k on 615 Cherry St** (caught by
+  Patrick 2026-09-21): `monthlyPrincipalAndInterest()` in `src/lib/metrics.ts`
+  amortized every loan as if it fully paid off over `term_months`, with no
+  concept of an interest-only loan. Cherry's loan is a 9-month interest-only
+  hard money bridge loan — amortizing $180,646 over 9 months computes a
+  ~$21k/mo payment (correctly reproduced in a regression test). Fixed by
+  adding a real `loans.interest_only` boolean column and branching in
+  `monthlyPrincipalAndInterest()`: interest-only loans pay `originalAmount
+  × (rate ÷ 12)` with no amortization, matching the term sheet's own quoted
+  $1,640.87/mo exactly.
+- **Bug 2 — 615 Cherry St showing full equity/no debt** (same root issue as
+  the earlier `current_balance` gap, now understood more generally): a
+  closed loan with `original_amount` set but `current_balance` left null
+  is indistinguishable from a cash purchase to every downstream calc.
+- **Anomaly flagging, per Patrick's request** ("flag these... if the
+  calculated value is way out of normal range, or if you're missing a key
+  piece of data"): added `computeMetricWarnings()` to `src/lib/metrics.ts`,
+  which flags exactly these two bug classes plus implausible DSCR/cash-on-
+  cash/cap-rate/leverage/value ranges. Surfaced in the UI: a `⚠ N flagged`
+  badge next to "Properties" on the dashboard, a `⚠` icon (hover for the
+  reason) next to any flagged property's address in the table, and a full
+  amber warning banner on that property's detail page.
+- **Regression test suite + CI + build-gate, per Patrick's request** ("build
+  a full set of regression tests... built into our deploy pipeline"):
+  - `src/lib/__tests__/metrics.test.ts` (vitest, `npm run test`): unit
+    tests for every pure function in `metrics.ts`, including regression
+    tests that reproduce both bugs above exactly (they fail if the fixes
+    are ever reverted) plus the existing prorated-rent and VARE-ARV-
+    fallback logic.
+  - `scripts/validate_data.ts` (`npm run validate:data`): builds a
+    disposable local SQLite DB from scratch (via `drizzle-kit push` against
+    a `file:` URL, never touching `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`
+    even if set in the environment), seeds it by running the real
+    `src/db/seed.ts`, then checks every property's `computeMetricWarnings()`
+    output plus referential integrity (no dangling `property_id`/
+    `entity_id` references) and required fields. Exits non-zero on any
+    hard failure.
+  - **Wired into the actual deploy pipeline**: `package.json`'s `build`
+    script is now `npm run verify && next build` (`verify` = test +
+    validate:data) — Vercel runs `npm run build` by default, so a build
+    that fails either check **will not deploy**. Verified this actually
+    works end-to-end by running `npm run build` locally.
+  - `.github/workflows/ci.yml` also runs `test` + `validate:data` on every
+    push/PR, for a visible GitHub check independent of the Vercel build.
+  - `npm run typecheck` (`tsc --noEmit`) exists as a standalone script but
+    is deliberately NOT part of `verify` — it needs Next.js's generated
+    `.next/types` (for things like `LayoutProps`) to pass, which only
+    exist after a `next build`/`next dev` has run at least once; `next
+    build` already runs its own full typecheck internally with the right
+    generated types, so nothing is lost by leaving it out of `verify`.
+- **Production data**: pushed the `interest_only` column and the correct
+  flag/values for 615 Cherry St's loan to the live Turso database — see the
+  critical warning at the top of this file for how that push went briefly
+  sideways (and was fully recovered) along the way.
 
 ## Twenty-third pass: 615 Cherry St closed, forced password-change flow, pushed to prod
 

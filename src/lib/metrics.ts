@@ -194,13 +194,92 @@ export async function getNoiByProperty(): Promise<Record<string, NoiResult>> {
 
 export function monthlyPrincipalAndInterest(loan: typeof loans.$inferSelect | undefined): { value: number; known: boolean } {
   if (!loan || !loan.currentBalance) return { value: 0, known: true };
-  if (!loan.originalAmount || !loan.termMonths || loan.rate === null || loan.rate === undefined) {
+  if (loan.rate === null || loan.rate === undefined) {
+    return { value: 0, known: false };
+  }
+  // Interest-only loans (typically short-term hard money/bridge loans) pay
+  // interest on the loan amount each month with no principal amortization
+  // — running the standard amortization formula against a short term_months
+  // here would compute a payment that pays off the entire principal within
+  // that term (e.g. 9 months), producing a monthly figure many times too
+  // high. Interest is computed off originalAmount (matching how lenders
+  // typically quote it on the term sheet — including any undrawn
+  // construction/rehab holdback — rather than currentBalance, which may be
+  // lower while a holdback sits undrawn).
+  if (loan.interestOnly) {
+    const base = loan.originalAmount ?? loan.currentBalance;
+    return { value: base * (loan.rate / 12), known: true };
+  }
+  if (!loan.originalAmount || !loan.termMonths) {
     return { value: 0, known: false };
   }
   const n = loan.termMonths;
   const r = loan.rate / 12;
   const value = r === 0 ? loan.originalAmount / n : (loan.originalAmount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
   return { value, known: true };
+}
+
+// ---------- Anomaly flags — catch "this number is obviously wrong or the
+// inputs behind it are incomplete" before a person has to notice it on the
+// dashboard. Two classes: (1) a key input needed for a calc is missing even
+// though the calc partially ran (e.g. a loan has a balance but no rate), and
+// (2) a computed value is outside any plausible real-world range for a
+// residential/small-multifamily rental, which usually means a data-entry
+// mistake (wrong units, wrong term, typo) rather than a truly extreme deal.
+// These thresholds are deliberately generous — the goal is to catch clear
+// mistakes (like a $20k/mo PITI on a $180k loan), not to flag every
+// slightly-unusual property.
+export type MetricWarning = { field: string; message: string };
+
+export function computeMetricWarnings(opts: {
+  property: typeof properties.$inferSelect;
+  loan: typeof loans.$inferSelect | undefined;
+  metrics: PropertyMetrics;
+}): MetricWarning[] {
+  const { property, loan, metrics } = opts;
+  const warnings: MetricWarning[] = [];
+
+  // A loan that's actually funded (has a balance) but is missing the rate
+  // needed to compute a real payment — PITI/DSCR silently show partial.
+  const pAndI = monthlyPrincipalAndInterest(loan);
+  if (loan?.currentBalance && !pAndI.known) {
+    warnings.push({ field: "piti", message: "Loan has a balance but is missing rate/term — monthly PITI is incomplete." });
+  }
+
+  // Monthly P&I that would pay off the entire loan in under ~12 months is
+  // almost never a real conventional/DSCR payment — it means the loan's
+  // term_months is being amortized when it shouldn't be (e.g. a short-term
+  // bridge/hard-money loan missing its interestOnly flag), or the term is
+  // just wrong.
+  if (pAndI.known && loan?.originalAmount && pAndI.value * 12 > loan.originalAmount) {
+    warnings.push({ field: "piti", message: `Monthly P&I ($${Math.round(pAndI.value).toLocaleString()}) would pay off the loan in under a year — check term_months/interestOnly on this loan.` });
+  }
+
+  // A closed loan (has an original amount, i.e. it's a real financed
+  // purchase) with no current balance recorded is indistinguishable from a
+  // cash purchase on every downstream calc (equity, leverage, DSCR) — this
+  // is exactly the 615 Cherry St bug: it silently showed full equity.
+  if (loan?.originalAmount && (loan.currentBalance === null || loan.currentBalance === undefined)) {
+    warnings.push({ field: "debt", message: "Loan has an original amount but no current balance — equity/leverage will show as debt-free, which is likely wrong." });
+  }
+
+  if (metrics.dscr !== null && (metrics.dscr < -5 || metrics.dscr > 10)) {
+    warnings.push({ field: "dscr", message: `DSCR (${metrics.dscr.toFixed(2)}) is outside a plausible range — check NOI and debt service inputs.` });
+  }
+  if (metrics.cashOnCash !== null && (metrics.cashOnCash < -1 || metrics.cashOnCash > 2)) {
+    warnings.push({ field: "cashOnCash", message: `Cash-on-cash (${(metrics.cashOnCash * 100).toFixed(0)}%) is outside a plausible range — check NOI, debt service, and cash-invested inputs.` });
+  }
+  if (metrics.capRate !== null && (metrics.capRate < -0.5 || metrics.capRate > 0.5)) {
+    warnings.push({ field: "capRate", message: `Cap rate (${(metrics.capRate * 100).toFixed(0)}%) is outside a plausible range — check NOI and value inputs.` });
+  }
+  if (metrics.leveragePct !== null && metrics.leveragePct > 1.5) {
+    warnings.push({ field: "leverage", message: `Leverage (${(metrics.leveragePct * 100).toFixed(0)}% LTV) is far above 100% — check current_est_value and loan balance.` });
+  }
+  if (property.currentEstValue && property.purchasePrice && property.currentEstValue > property.purchasePrice * 5) {
+    warnings.push({ field: "value", message: "Current value is more than 5x purchase price — check for a units/typo error." });
+  }
+
+  return warnings;
 }
 
 // ---------- Property-level performance metrics ----------

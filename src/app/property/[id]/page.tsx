@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/PageNav";
 import { MetricTile, BreakdownRow } from "@/components/MetricTile";
 import {
   getCurrentRentDetailByProperty, getNoiByProperty, computePropertyMetrics,
-  monthlyPrincipalAndInterest, resolveCurrentRent, METRIC_TOOLTIPS,
+  monthlyPrincipalAndInterest, resolveCurrentRent, computeMetricWarnings, METRIC_TOOLTIPS,
 } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +93,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const noiByProperty = await getNoiByProperty();
   const rentDetail = (await getCurrentRentDetailByProperty())[id];
   const metrics = computePropertyMetrics({ property, loan, noi: noiByProperty[id], underwriting });
+  const warnings = computeMetricWarnings({ property, loan, metrics });
 
   const debt = loan?.currentBalance ?? 0;
   const value = property.currentEstValue ?? 0;
@@ -145,6 +146,17 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           </span>
           <span className="text-sm text-zinc-500">{pm ? `Managed by ${pm.name}` : "No property manager assigned"}</span>
         </section>
+
+        {warnings.length > 0 && (
+          <section className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+            <div className="text-sm font-semibold text-amber-800">
+              ⚠ {warnings.length} data/calc issue{warnings.length === 1 ? "" : "s"} flagged on this property
+            </div>
+            <ul className="mt-2 space-y-1 text-sm text-amber-800">
+              {warnings.map((w, i) => <li key={i}>• {w.message}</li>)}
+            </ul>
+          </section>
+        )}
 
         {/* Acquisition & current value — the key facts up front, shown
             above the metric tiles. Unlike those, this card doesn't expand;
