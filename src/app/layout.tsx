@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RPM",
-  description: "RPM (Rental Property Management) — Bogan-Rhineberger rental portfolio manager",
+  title: "REPP",
+  description: "REPP (Real Estate Portfolio Performance) — Bogan-Rhineberger rental portfolio manager",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

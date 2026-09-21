@@ -15,7 +15,7 @@ import {
 } from "./schema";
 
 async function main() {
-  console.log("Seeding RPM (Rental Property Management)...");
+  console.log("Seeding REPP (Real Estate Portfolio Performance)...");
 
   // ---------- Owners ----------
   const [household] = await db.insert(owners).values({

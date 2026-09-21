@@ -233,7 +233,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <PageHeader title="RPM" subtitle="Rental Property Management" />
+      <PageHeader title="REPP" subtitle="Real Estate Portfolio Performance" />
 
       <main className="mx-auto max-w-6xl px-6 py-8 space-y-10">
         {/* Rollup — whole-portfolio totals (100% of every property) */}

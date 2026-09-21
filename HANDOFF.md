@@ -1,7 +1,8 @@
-# RPM (Rental Property Management) — handoff notes (updated 2026-09-21, twenty-fourth pass)
+# REPP (Real Estate Portfolio Performance) — handoff notes (updated 2026-09-22, twenty-fifth pass)
 
-> **App name**: Patrick named this app "RPM" (Rental Property Management)
-> 2026-09-20 — refer to it that way going forward. It's on the front page
+> **App name**: Patrick named this app "RPM" (Rental Property Management) on
+> 2026-09-20, then renamed it to "REPP" (Real Estate Portfolio Performance)
+> on 2026-09-22 — refer to it as REPP going forward. It's on the front page
 > header, the login page, and the browser tab title. Internally it's still
 > the same BLT LLC family rental portfolio ("BLT Portfolio" shows up in
 > data/comments as the subject matter, and the repo/Vercel project/domain
@@ -23,6 +24,28 @@
 > (3) if a column addition is genuinely simple, just run the `ALTER TABLE`
 > yourself instead of trusting drizzle-kit's diff. Don't skip this because
 > "it's just adding a column" — that's exactly what went wrong last time.
+
+## Twenty-fifth pass: renamed app RPM → REPP; confirmed prior pass's Vercel build fix went live
+
+- **App renamed from "RPM" to "REPP"** (Real Estate Portfolio Performance),
+  per Patrick 2026-09-22 — he felt "RPM"/"Rental Property Management"
+  undersold that this is really about portfolio *performance*, not just
+  rental ops. Updated everywhere the old name appeared: front page header
+  (`src/app/page.tsx`), login page (`src/app/login/page.tsx`), browser tab
+  title/description (`src/app/layout.tsx`), `seed.ts`'s startup log line,
+  the `schema.ts` header comment, `README.md`, and this file. The repo,
+  Vercel project, and domain remain `blt-portfolio` — only the app's own
+  displayed name changed, same as the RPM rename before it.
+- **Confirmed the previous pass's Vercel build fix actually deployed**:
+  polled the Vercel deployments API and verified the `ci/validate_data.ts`
+  relocation (commit `4d6cccc`) and the `.gitignore` cleanup for the
+  un-pushable CI workflow file (commit `45b6b3b`) both reached `READY`
+  state in production. The interest-only PITI fix, anomaly-flagging UI,
+  and build-gated regression tests from the twenty-fourth pass are live.
+- `.github/workflows/ci.yml` is still not in the repo — the configured
+  GitHub PAT still lacks the `workflow` OAuth scope. It's gitignored
+  locally (see `.gitignore`) with instructions for landing it once a
+  scoped token or a manual GitHub UI edit is available.
 
 ## Twenty-fourth pass: fixed interest-only PITI bug + null-balance equity bug, added a regression test suite + CI + build-gate, survived a drizzle-kit data-loss incident
 
