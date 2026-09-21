@@ -740,7 +740,7 @@ async function main() {
       pmFeePct: 0.09,
       projectedYear1CashFlow: -1345.23,
       projectedYear1TotalReturn: 21477.28,
-      notes: "Year 1 total return figure is equity growth + cash flow per the underwriting model, not cash flow alone.",
+      notes: "Year 1 total return figure is equity growth + cash flow per the underwriting model, not cash flow alone. rehabCostBudget ($51,010) is the VARE file's own DRAFT pre-purchase estimate for planning/underwriting purposes only — it is not actual capex spend and has not been confirmed or committed to. Do not treat it as done or in progress; the real, current working rehab estimate is properties.rehabBudget ($30,000, also not yet confirmed per Patrick) and actual spend belongs in properties.rehabSpentToDate / maintenance_events, both still $0/empty for this property as of 2026-09-22.",
     },
     {
       propertyId: maumee808.id,

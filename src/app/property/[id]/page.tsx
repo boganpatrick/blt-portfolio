@@ -15,6 +15,14 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Address line for the property header — appends city/state/zip when present,
+// degrading gracefully (e.g. just the street address) when some are missing.
+function formatFullAddress(p: { address: string; city: string | null; state: string | null; zip: string | null }): string {
+  const cityState = [p.city, p.state].filter(Boolean).join(", ");
+  const cityStateZip = [cityState, p.zip].filter(Boolean).join(" ");
+  return [p.address, cityStateZip].filter(Boolean).join(", ");
+}
+
 const statusLabel: Record<string, string> = {
   under_contract: "Under Contract",
   rehab: "Rehab",
@@ -135,7 +143,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <PageHeader title={property.address} subtitle={`${property.propertyType ?? ""} — ${entity?.name ?? "Unassigned"}`} />
+      <PageHeader title={formatFullAddress(property)} subtitle={`${property.propertyType ?? ""} — ${entity?.name ?? "Unassigned"}`} />
 
       <main className="mx-auto max-w-6xl px-6 py-8 space-y-10">
         <Link href="/" className="text-sm text-zinc-500 underline">&larr; Back to dashboard</Link>
