@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate:data": "tsx scripts/validate_data.ts",
+    "validate:data": "tsx ci/validate_data.ts",
     "verify": "npm run test && npm run validate:data",
     "typecheck": "tsc --noEmit"
   },

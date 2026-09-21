@@ -46,7 +46,7 @@ dev.db-shm
 dev.db-wal
 dev.db-journal
 
-# scratch dir used by scripts/validate_data.ts (regression test / data
+# scratch dir used by ci/validate_data.ts (regression test / data
 # validation script) — always regenerated, never meant to be committed
 .validate-scratch
 
