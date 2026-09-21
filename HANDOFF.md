@@ -25,6 +25,45 @@
 > yourself instead of trusting drizzle-kit's diff. Don't skip this because
 > "it's just adding a column" — that's exactly what went wrong last time.
 
+## Twenty-sixth pass: fixed CapEx History showing draft VARE estimates as done spend; corrected 808 Maumee's rehab total
+
+- **Bug: 615 Cherry St's "CapEx History" showed $51,010 as if it were
+  confirmed spend**, caught by Patrick 2026-09-22 while discussing a
+  capital-gains/basis question. Root cause: `import-maintenance-events.ts`
+  (the pipeline that loads a VARE file's Renovation-tab checklist into
+  `maintenance_events`) treats every itemized line item the same whether
+  the underlying work has actually happened or is still a pre-purchase
+  planning estimate — Cherry's 35 line items are the latter (rehab hasn't
+  started; no confirmed spend exists), but the property page summed them
+  into "CapEx History" indistinguishably from real, completed spend on
+  other properties.
+- **Fix**: added `maintenance_events.is_planned` (boolean, default false).
+  Applied to production via a hand-written `ALTER TABLE ADD COLUMN`
+  (never `drizzle-kit push --force` — see the critical note at the top of
+  this file) after backing up the table's 107 rows to a local JSON file
+  first. Marked all 35 of Cherry's VARE-import rows `is_planned = 1`. The
+  property page (`src/app/property/[id]/page.tsx`) now splits capex events
+  into confirmed (`isPlanned: false`, counted in "CapEx History") and
+  planned/draft (`isPlanned: true`, shown separately under a new amber
+  "Planned / Estimated Rehab" section labeled as a draft VARE estimate,
+  not spent, and excluded from the CapEx History total).
+- **Known gap**: `seed.ts` never had the ~107 real VARE-import
+  `maintenance_events` rows in the first place (they were loaded straight
+  to production via `import-maintenance-events.ts` + a JSON extract from
+  `scripts/extract_vare_renovation.py`, in a session before this repo's
+  regression-test pass existed) — so `validate:data`/the local seed can't
+  catch this class of bug today. Worth backfilling into `seed.ts` in a
+  future pass so the disposable-DB validator actually covers capex data,
+  not just properties/loans/metrics.
+- **Also corrected, same pass**: 808 Maumee's `rehab_budget` and
+  `rehab_spent_to_date` were stale ($45,000 / $35,000) — Patrick uploaded
+  the latest VARE file (`VARE_808_Maumee_Kokomo_20260627.xlsx`), whose
+  Renovation tab totals $53,228.32, exactly matching the 6 itemized capex
+  line items already on file for that property. Corrected both fields to
+  $53,228.32 in production and `seed.ts` (rehab there is complete, so
+  budget == confirmed spend — unlike Cherry, these items are NOT flagged
+  `is_planned`).
+
 ## Twenty-fifth pass: renamed app RPM → REPP; confirmed prior pass's Vercel build fix went live
 
 - **App renamed from "RPM" to "REPP"** (Real Estate Portfolio Performance),

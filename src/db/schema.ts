@@ -210,6 +210,14 @@ export const maintenanceEvents = sqliteTable("maintenance_events", {
   eventDate: text("event_date"),
   cost: real("cost"),
   isCapex: integer("is_capex", { mode: "boolean" }).notNull().default(false),
+  // True for a line item that's still just a draft/planned estimate (e.g.
+  // pulled from a VARE underwriting file's Renovation tab before rehab has
+  // started or been confirmed) rather than actual, confirmed spend. The
+  // "CapEx History" total on the property page only counts non-planned rows
+  // — a planned item must never be displayed as if it were done. Added
+  // 2026-09-22 after 615 Cherry St's 35 pre-rehab VARE line items ($51,010)
+  // were showing as a completed capex total before any rehab spend existed.
+  isPlanned: integer("is_planned", { mode: "boolean" }).notNull().default(false),
   expectedLifeYears: integer("expected_life_years"),
   notes: text("notes"),
 });

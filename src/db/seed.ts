@@ -273,10 +273,16 @@ async function main() {
     address: "808 Maumee", city: "Kokomo", state: "IN", zip: "46902",
     propertyType: "SFH 4/2", status: "leased",
     purchasePrice: 75000, purchaseDate: "2025-06-13",
-    rehabBudget: 45000, rehabSpentToDate: 35000,
+    // Corrected 2026-09-22 from $45,000/$35,000 (stale) to $53,228.32 per
+    // the latest VARE file (VARE_808_Maumee_Kokomo_20260627.xlsx Renovation
+    // tab total) — matches the 6 itemized capex line items already on file
+    // exactly. Rehab is complete, so budget == spend, both confirmed (not
+    // a draft estimate — contrast with 615 Cherry St below, whose rehab
+    // line items haven't happened yet and are flagged isPlanned instead).
+    rehabBudget: 53228.32, rehabSpentToDate: 53228.32,
     putIntoServiceDate: "2026-03-24", // lease start date on file (808_Maumee_Kokomo_lease_20260324.pdf) — rehab was complete by then, exact rehabCompleteDate not on file
     currentEstValue: 141000, currentValueSource: "appraisal", currentValueAsOf: "2026-06-26", // refi appraisal, per Patrick 2026-09-04
-    notes: "Moved from BLT Mohawk LLC to BLT Wildcat LLC via quitclaim 4/17/2026 (through Patrick & Gina personally). Rehab complete, leased since 3/24/2026 — status corrected from 'rehab' 2026-09-04 per Patrick. Value corrected 2026-09-04 to $141,000 per the refi appraisal (was $120,000 zillow estimate).",
+    notes: "Moved from BLT Mohawk LLC to BLT Wildcat LLC via quitclaim 4/17/2026 (through Patrick & Gina personally). Rehab complete, leased since 3/24/2026 — status corrected from 'rehab' 2026-09-04 per Patrick. Value corrected 2026-09-04 to $141,000 per the refi appraisal (was $120,000 zillow estimate). Rehab budget/spend corrected 2026-09-22 to $53,228.32 per the latest VARE file (VARE_808_Maumee_Kokomo_20260627.xlsx Renovation tab total) — the prior $45,000 budget / $35,000 spent figures were stale. This total exactly matches the 6 itemized capex line items already on file (maintenance_events), and rehab is complete, so budget and spend are treated as equal and confirmed, not a draft estimate.",
   });
 
   const buckeye2000 = await addProperty({

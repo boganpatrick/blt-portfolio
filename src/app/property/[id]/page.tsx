@@ -130,9 +130,16 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
     estimateRent: underwriting?.projectedMonthlyRent ?? null,
   });
 
-  const capexEvents = events.filter((e) => e.isCapex).sort((a, b) => (b.eventDate ?? "").localeCompare(a.eventDate ?? ""));
+  const allCapexEvents = events.filter((e) => e.isCapex).sort((a, b) => (b.eventDate ?? "").localeCompare(a.eventDate ?? ""));
+  // Confirmed spend vs. still-draft/planned line items (e.g. a VARE
+  // underwriting file's Renovation-tab estimate, pulled in before rehab
+  // has started or been confirmed) — these must never be summed together
+  // as if the planned ones were done. See schema.ts's isPlanned comment.
+  const capexEvents = allCapexEvents.filter((e) => !e.isPlanned);
+  const plannedCapexEvents = allCapexEvents.filter((e) => e.isPlanned);
   const maintenanceOnlyEvents = events.filter((e) => !e.isCapex).sort((a, b) => (b.eventDate ?? "").localeCompare(a.eventDate ?? ""));
   const totalCapex = capexEvents.reduce((sum, e) => sum + (e.cost ?? 0), 0);
+  const totalPlannedCapex = plannedCapexEvents.reduce((sum, e) => sum + (e.cost ?? 0), 0);
   const totalMaintenance = maintenanceOnlyEvents.reduce((sum, e) => sum + (e.cost ?? 0), 0);
 
   const systems = SYSTEM_PATTERNS.map((sys) => {
@@ -490,6 +497,38 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             </div>
           )}
         </section>
+
+        {/* Planned/estimated rehab — draft VARE line items, not yet spent */}
+        {plannedCapexEvents.length > 0 && (
+          <section>
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              Planned / Estimated Rehab {<span className="font-normal text-zinc-400">({fmt(totalPlannedCapex)} draft estimate)</span>}
+            </h2>
+            <p className="mb-3 text-sm text-amber-700">
+              Draft line items from a VARE underwriting file — planning estimates only, not confirmed or actual spend. Not included in CapEx History above until rehab happens and spend is confirmed.
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-amber-200 bg-amber-50">
+              <table className="w-full text-sm">
+                <thead className="bg-amber-100 text-left text-xs uppercase tracking-wide text-amber-800">
+                  <tr>
+                    <th className="px-4 py-2">Category</th>
+                    <th className="px-4 py-2">Description</th>
+                    <th className="px-4 py-2 text-right">Est. Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-100">
+                  {plannedCapexEvents.map((e) => (
+                    <tr key={e.id}>
+                      <td className="px-4 py-2 font-medium text-amber-900">{e.category}</td>
+                      <td className="px-4 py-2 text-amber-800">{e.description ?? "—"}</td>
+                      <td className="px-4 py-2 text-right text-amber-900">{fmt(e.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         {/* Maintenance history */}
         <section>
