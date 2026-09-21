@@ -37,6 +37,29 @@
   production database at all (`users` table was empty), so nobody can
   actually log in to the live app right now — worth flagging to Patrick
   separately from this pass's changes.
+- **Update, same pass**: Patrick's `patrick` account turned out to have
+  never actually reached production (likely seeded to a local `dev.db` in
+  some earlier session that never had Turso env vars pointed at prod — not
+  something this pass deleted; the table was already empty before any of
+  this pass's writes). Re-seeded it directly against production via
+  `scripts/seed_user.mjs`, with `must_change_password` on and a
+  freshly-generated temp password relayed to Patrick in chat (no email
+  connector available this session to send it another way). Patrick has
+  since logged in and set his own password.
+- **Update, same pass**: Patrick sent the actual signed Nation Loan Funding
+  LLC term sheet for 615 Cherry St (615_Cherry_Street-TermSheet-352758,
+  8/27/2026), which supersedes the earlier 6.125%/30yr/5-4-3-2-1-prepay
+  guess entirely. Corrected: this is a **hard money** purchase/rehab bridge
+  loan (not DSCR) — 10.90% interest-only, **9-month term with a balloon**,
+  no prepayment penalty. Also fixed the lender name typo ("Nation Loan
+  Funding LLC", not "National"). Added Patrick's rehab budget estimate
+  ($30k, not yet confirmed — the term sheet's own rehab-budget component is
+  $42,625, kept in loans.notes for reference) and current Zillow value
+  ($190,000 as of 2026-09-20) to the property record. Plan per Patrick:
+  rehab and refinance out before the 9-month balloon comes due — no refi
+  terms yet, flagged in the backlog. Pushed to prod the same way as the
+  rest of this pass (targeted UPDATEs against the existing property/loan
+  rows, not a reseed).
 
 ## Twenty-second pass: closing docs/leases for 6 properties, Financial Summary tile redesign, two open blockers
 

@@ -313,15 +313,22 @@ async function main() {
   });
 
   // 615 Cherry: closed 9/17/2026. Owned by BLT Wildcat LLC. Purchase price
-  // and loan figures below are from the ALTA settlement statement Patrick
-  // provided (202600500), which is still marked DRAFT — he doesn't have the
-  // full closing package yet, so treat these as held-but-not-fully-verified
-  // until that arrives (see backlog).
+  // from the DRAFT ALTA settlement statement (202600500); loan terms since
+  // confirmed against the signed Nation Loan Funding LLC term sheet
+  // (8/27/2026) — see loans.notes. Full closing HUD/final settlement
+  // statement still not on file, so treat purchase-side figures as
+  // held-but-not-fully-verified until that arrives (see backlog).
   const cherry615 = await addProperty({
     address: "615 Cherry", city: "Noblesville", state: "IN",
     propertyType: "2/1", status: "vacant",
     purchasePrice: 169900, purchaseDate: "2026-09-17",
-    notes: "Closed 9/17/2026 (BLT Wildcat LLC). Purchase price $169,900 per DRAFT ALTA settlement statement (file# 202600500, Regional First Title Group) — full closing package not yet on file, pending Patrick. Loan is a construction-holdback DSCR-style loan from National Loan Funding LLC: $180,646 total, of which $36,231 is a construction holdback Patrick has not drawn and does not plan to draw (see loans.notes). Underwriting model on file (VARE_615_Cherry_Noblesville) — that's the pre-purchase projection, not these closing figures.",
+    // Patrick's own estimate, not confirmed yet — differs from the $42,625
+    // rehab budget baked into the Nation Loan Funding term sheet's
+    // construction-holdback math; that figure stays in loans.notes as the
+    // lender's number, this one is Patrick's current working estimate.
+    rehabBudget: 30000,
+    currentEstValue: 190000, currentValueSource: "zillow", currentValueAsOf: "2026-09-20",
+    notes: "Closed 9/17/2026 (BLT Wildcat LLC). Purchase price $169,900 per DRAFT ALTA settlement statement (file# 202600500, Regional First Title Group) — full closing package not yet on file, pending Patrick. Hard money purchase/rehab loan from Nation Loan Funding LLC (see loans.notes for terms) — Patrick plans to rehab (est. $30k, not yet confirmed) and refinance out before the loan's 9-month balloon. Underwriting model on file (VARE_615_Cherry_Noblesville) — that's the pre-purchase projection, not these closing figures.",
   });
 
   // ---------- Property <-> Entity ownership (current + historical, dated) ----------
@@ -546,18 +553,21 @@ async function main() {
   // ---------- Loans (from portfolio workbook "mortgage balance") ----------
   await db.insert(loans).values([
     {
-      propertyId: cherry615.id, lender: "National Loan Funding LLC", loanType: "DSCR",
+      // Confirmed 2026-09-20 against the signed Nation Loan Funding LLC
+      // term sheet (615_Cherry_Street-TermSheet-352758, dated 8/27/2026) —
+      // supersedes the earlier 6.125%/30yr DSCR-style guess entirely. This
+      // is a hard money purchase/rehab bridge loan, not a DSCR loan: 9-month
+      // term, interest-only, balloon due at maturity. Patrick plans to
+      // rehab and refinance out before then. Note the lender's name is
+      // "Nation Loan Funding LLC" (no "-al"), corrected from earlier notes.
+      propertyId: cherry615.id, lender: "Nation Loan Funding LLC", loanType: "hard money",
       originalAmount: 180646, originationDate: "2026-09-17",
-      rate: 0.06125, termMonths: 360,
-      // 5-year prepay penalty cascading down 1%/year (5-4-3-2-1), per
-      // Patrick — same shorthand used for the other DSCR loans on file.
-      // Full closing note/package still not on file to confirm this
-      // against directly.
-      prepayPenaltyTerms: "5-4-3-2-1 year/% penalty",
-      // currentBalance left null pending the full closing package; the
-      // $180,646 above is the committed loan amount from the ALTA
-      // settlement statement, not a confirmed funded balance.
-      notes: "Rate (6.125%), term (30yr), and the 5-4-3-2-1 prepay penalty per Patrick 2026-09-20; full closing note/package not yet on file to confirm directly. $180,646 total loan (from DRAFT ALTA settlement statement 202600500, 9/17/2026 close) includes a $36,231 construction holdback to National Loan Funding LLC — per Patrick, that holdback has not been drawn and he does not plan to draw it, so real funded principal is effectively $144,415 ($180,646 minus the holdback). Broker: Coast2Coast Mortgage.",
+      rate: 0.109, termMonths: 9,
+      prepayPenaltyTerms: "None (per term sheet)",
+      // currentBalance left null pending the full closing HUD; the
+      // $180,646 above is the committed loan amount from the term sheet,
+      // not a confirmed funded balance.
+      notes: "Hard money purchase/rehab loan, per the signed Nation Loan Funding LLC term sheet (615_Cherry_Street-TermSheet-352758, 8/27/2026): 10.90% interest-only, 9-month term with a balloon payment at maturity — Patrick plans to rehab and refinance out before then. $180,646 total loan = $144,415 initial funding + $36,231 rehab/construction holdback (term sheet's own rehab budget estimate was $42,625; Patrick's current working estimate is $30k, not yet confirmed — see properties.rehabBudget). No prepayment penalty. Other loan costs per the term sheet: 2.75% origination points (~$4,968), $2,495 doc fee, ~$1,641/mo interest payment, ~$37,047 cash to close. Full closing HUD/final settlement statement not yet on file to confirm the term sheet's numbers against.",
     },
     // Terms below are the ones we actually have on file so far — pulled from
     // the per-property tabs in BLT_Portfolio.xlsx (2026-08-31 pass). Only
