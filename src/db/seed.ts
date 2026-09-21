@@ -548,13 +548,16 @@ async function main() {
     {
       propertyId: cherry615.id, lender: "National Loan Funding LLC", loanType: "DSCR",
       originalAmount: 180646, originationDate: "2026-09-17",
-      // Rate/term aren't on the ALTA settlement statement itself (it's a
-      // closing-cost ledger, not a note) and the full closing package isn't
-      // on file yet — left null rather than guessed. currentBalance also
-      // left null pending that; the $180,646 above is the committed loan
-      // amount from the settlement statement, not a confirmed funded
-      // balance.
-      notes: "From DRAFT ALTA settlement statement (202600500, 9/17/2026 close), full closing package not yet on file. $180,646 total loan includes a $36,231 construction holdback to National Loan Funding LLC — per Patrick, that holdback has not been drawn and he does not plan to draw it, so real funded principal is effectively $144,415 ($180,646 minus the holdback). Broker: Coast2Coast Mortgage. Rate/term/amortization to be entered once the full closing package arrives.",
+      rate: 0.06125, termMonths: 360,
+      // 5-year prepay penalty cascading down 1%/year (5-4-3-2-1), per
+      // Patrick — same shorthand used for the other DSCR loans on file.
+      // Full closing note/package still not on file to confirm this
+      // against directly.
+      prepayPenaltyTerms: "5-4-3-2-1 year/% penalty",
+      // currentBalance left null pending the full closing package; the
+      // $180,646 above is the committed loan amount from the ALTA
+      // settlement statement, not a confirmed funded balance.
+      notes: "Rate (6.125%), term (30yr), and the 5-4-3-2-1 prepay penalty per Patrick 2026-09-20; full closing note/package not yet on file to confirm directly. $180,646 total loan (from DRAFT ALTA settlement statement 202600500, 9/17/2026 close) includes a $36,231 construction holdback to National Loan Funding LLC — per Patrick, that holdback has not been drawn and he does not plan to draw it, so real funded principal is effectively $144,415 ($180,646 minus the holdback). Broker: Coast2Coast Mortgage.",
     },
     // Terms below are the ones we actually have on file so far — pulled from
     // the per-property tabs in BLT_Portfolio.xlsx (2026-08-31 pass). Only
