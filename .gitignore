@@ -58,3 +58,16 @@ dev.db-journal
 data/raw
 data/processed
 deliverables
+
+# GitHub Actions CI workflow — written locally but NOT yet in the remote
+# repo. The GitHub PAT configured for this project lacks the `workflow`
+# OAuth scope, so any push including this file is rejected outright by
+# GitHub ("refusing to allow a Personal Access Token to create or update
+# workflow ... without workflow scope"). It's gitignored here only so it
+# stops showing as an untracked file / tripping the pre-commit check.
+# To actually enable it: either (a) generate a PAT with the workflow
+# scope and remove this ignore rule, then commit+push normally, or
+# (b) add .github/workflows/ci.yml manually via the GitHub web UI using
+# the version already sitting on disk. Once it's actually in the repo,
+# remove this ignore entry.
+.github/workflows/ci.yml
