@@ -33,6 +33,10 @@ export const users = sqliteTable("users", {
   displayName: text("display_name"),
   failedAttempts: integer("failed_attempts").notNull().default(0),
   lockedUntil: text("locked_until"), // ISO datetime; null = not locked
+  // Set true for an account provisioned with a temp password; forces
+  // /change-password before any other page is reachable (see proxy.ts).
+  // Cleared once the user sets their own password.
+  mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
 });
 

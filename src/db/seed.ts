@@ -96,7 +96,7 @@ async function main() {
     formedDate: "2026-03-16", // per Operating Agreement effective date, same as BLT Flats
     managingMember: "Patrick Bogan",
     quickbooksSetUp: false,
-    notes: "Received 808 Maumee via quitclaim 4/17/2026 (recorded 4/29/2026), routed through Patrick & Gina personally on the way out of BLT Mohawk LLC. Will also hold 615 Cherry once that purchase closes (~9/17/2026). Not yet set up in QuickBooks.",
+    notes: "Received 808 Maumee via quitclaim 4/17/2026 (recorded 4/29/2026), routed through Patrick & Gina personally on the way out of BLT Mohawk LLC. Also holds 615 Cherry St, closed 9/17/2026. Not yet set up in QuickBooks.",
   }).returning();
 
   const [b2Partners] = await db.insert(entities).values({
@@ -312,15 +312,16 @@ async function main() {
     notes: "Was mid-rehab as of Dec 2025 portfolio snapshot; rehab completed and leased starting 7/22/2026 per lease on file.",
   });
 
-  // 615 Cherry: under contract, not yet closed — a pending acquisition, not
-  // a real estate holding yet. Kept out of portfolio rollups (see page.tsx)
-  // and excluded from the main properties table.
+  // 615 Cherry: closed 9/17/2026. Owned by BLT Wildcat LLC. Purchase price
+  // and loan figures below are from the ALTA settlement statement Patrick
+  // provided (202600500), which is still marked DRAFT — he doesn't have the
+  // full closing package yet, so treat these as held-but-not-fully-verified
+  // until that arrives (see backlog).
   const cherry615 = await addProperty({
     address: "615 Cherry", city: "Noblesville", state: "IN",
-    propertyType: "2/1", status: "under_contract",
-    purchasePrice: 169000,
-    targetCloseDate: "2026-09-17",
-    notes: "Under contract; target close 9/17/2026. Will be owned by BLT Wildcat LLC once closed. Underwriting model on file (VARE_615_Cherry_Noblesville).",
+    propertyType: "2/1", status: "vacant",
+    purchasePrice: 169900, purchaseDate: "2026-09-17",
+    notes: "Closed 9/17/2026 (BLT Wildcat LLC). Purchase price $169,900 per DRAFT ALTA settlement statement (file# 202600500, Regional First Title Group) — full closing package not yet on file, pending Patrick. Loan is a construction-holdback DSCR-style loan from National Loan Funding LLC: $180,646 total, of which $36,231 is a construction holdback Patrick has not drawn and does not plan to draw (see loans.notes). Underwriting model on file (VARE_615_Cherry_Noblesville) — that's the pre-purchase projection, not these closing figures.",
   });
 
   // ---------- Property <-> Entity ownership (current + historical, dated) ----------
@@ -350,7 +351,7 @@ async function main() {
     { propertyId: kingston.id, entityId: b2Partners.id, startDate: "2025-10-03" },
     { propertyId: division1339.id, entityId: b2Partners.id, startDate: "2025-10-01" },
 
-    { propertyId: cherry615.id, entityId: bltWildcat.id, startDate: "2026-09-17", notes: "Not yet closed — target date, not an actual ownership start." },
+    { propertyId: cherry615.id, entityId: bltWildcat.id, startDate: "2026-09-17" },
   ]);
 
   // ---------- Property manager assignments ----------
@@ -364,7 +365,7 @@ async function main() {
     { propertyId: hemlock.id, pmId: crm.id, startDate: "2025-08-27" },
     { propertyId: kingston.id, pmId: crm.id, startDate: "2025-10-03" },
     { propertyId: division1339.id, pmId: crm.id, startDate: "2025-10-01" },
-    // wayneSt: no PM (family arrangement); buckeyeBldg: no PM yet (still rehab); cherry615: not closed yet.
+    // wayneSt: no PM (family arrangement); buckeyeBldg: no PM yet (still rehab); cherry615: closed but no PM/tenant lined up yet.
   ]);
 
   // ---------- Units + Leases (from actual lease documents on file) ----------
@@ -544,6 +545,17 @@ async function main() {
 
   // ---------- Loans (from portfolio workbook "mortgage balance") ----------
   await db.insert(loans).values([
+    {
+      propertyId: cherry615.id, lender: "National Loan Funding LLC", loanType: "DSCR",
+      originalAmount: 180646, originationDate: "2026-09-17",
+      // Rate/term aren't on the ALTA settlement statement itself (it's a
+      // closing-cost ledger, not a note) and the full closing package isn't
+      // on file yet — left null rather than guessed. currentBalance also
+      // left null pending that; the $180,646 above is the committed loan
+      // amount from the settlement statement, not a confirmed funded
+      // balance.
+      notes: "From DRAFT ALTA settlement statement (202600500, 9/17/2026 close), full closing package not yet on file. $180,646 total loan includes a $36,231 construction holdback to National Loan Funding LLC — per Patrick, that holdback has not been drawn and he does not plan to draw it, so real funded principal is effectively $144,415 ($180,646 minus the holdback). Broker: Coast2Coast Mortgage. Rate/term/amortization to be entered once the full closing package arrives.",
+    },
     // Terms below are the ones we actually have on file so far — pulled from
     // the per-property tabs in BLT_Portfolio.xlsx (2026-08-31 pass). Only
     // filled in where the source was a real document, not guessed; where a

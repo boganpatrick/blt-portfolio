@@ -9,6 +9,10 @@ const nowNext: Item[] = [
     title: "1339 Division St cash-out refi",
     detail: "In process as of late Aug 2026, expected to close within ~30 days. Once it closes: enter real loan terms, and work out the Mike/Household split transition per the B2 Partners capital stack method.",
   },
+  {
+    title: "615 Cherry St — confirm final closing figures",
+    detail: "Closed 9/17/2026, but the ALTA settlement statement on file is marked DRAFT and Patrick doesn't have the full closing package yet. Purchase price ($169,900) and the National Loan Funding LLC loan ($180,646, incl. a $36,231 construction holdback Patrick doesn't plan to draw) are entered from that draft statement — rate/term/amortization aren't on it and still need the actual note once the full package arrives.",
+  },
 ];
 
 const later: Item[] = [

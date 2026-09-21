@@ -16,8 +16,12 @@ function getSecret() {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(userId: string, username: string): Promise<string> {
-  return new SignJWT({ username })
+export async function createSessionToken(
+  userId: string,
+  username: string,
+  mustChangePassword: boolean = false
+): Promise<string> {
+  return new SignJWT({ username, mustChangePassword })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
     .setIssuedAt()
@@ -25,11 +29,17 @@ export async function createSessionToken(userId: string, username: string): Prom
     .sign(getSecret());
 }
 
-export async function verifySessionToken(token: string): Promise<{ userId: string; username: string } | null> {
+export async function verifySessionToken(
+  token: string
+): Promise<{ userId: string; username: string; mustChangePassword: boolean } | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     if (!payload.sub) return null;
-    return { userId: payload.sub, username: payload.username as string };
+    return {
+      userId: payload.sub,
+      username: payload.username as string,
+      mustChangePassword: Boolean(payload.mustChangePassword),
+    };
   } catch {
     return null;
   }

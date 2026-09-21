@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   // Successful login: reset lockout counters and issue a session cookie.
   await db.update(users).set({ failedAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
 
-  const token = await createSessionToken(user.id, user.username);
+  const token = await createSessionToken(user.id, user.username, user.mustChangePassword);
   const res = NextResponse.json({ ok: true });
   res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,

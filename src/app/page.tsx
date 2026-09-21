@@ -100,10 +100,10 @@ async function getPortfolio() {
     return { property: p, entity, loan, pm, underwriting, equity, currentRent, rentIsEstimate, rentSource, monthlyPiti, pitiComplete, metrics, doorCount };
   });
 
-  // "under_contract" properties (e.g. 615 Cherry) are pending acquisitions,
-  // not real estate holdings yet — kept out of the portfolio entirely, shown
-  // in their own section. Personal residence is excluded from the seed
-  // entirely, but this filter stays as a defensive backstop.
+  // "under_contract" properties are pending acquisitions, not real estate
+  // holdings yet — kept out of the portfolio entirely, shown in their own
+  // section. Personal residence is excluded from the seed entirely, but
+  // this filter stays as a defensive backstop.
   const rentalRows = rows.filter((r) => r.property.status !== "personal_residence" && r.property.status !== "under_contract");
   const pendingRows = rows.filter((r) => r.property.status === "under_contract");
 

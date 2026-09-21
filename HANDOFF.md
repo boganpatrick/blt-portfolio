@@ -1,4 +1,42 @@
-# BLT Portfolio Manager — handoff notes (updated 2026-09-08, twenty-second pass)
+# BLT Portfolio Manager — handoff notes (updated 2026-09-20, twenty-third pass)
+
+## Twenty-third pass: 615 Cherry St closed, forced password-change flow, pushed to prod
+
+- **615 Cherry St closed 9/17/2026** (BLT Wildcat LLC), per the DRAFT ALTA
+  settlement statement Patrick provided (file# 202600500, Regional First
+  Title Group): purchase price $169,900, and a National Loan Funding LLC
+  loan of $180,646 (a construction-holdback DSCR-style loan — $36,231 of
+  that is a holdback Patrick isn't drawing and doesn't plan to draw, so real
+  funded principal is effectively $144,415). Status moved from
+  `under_contract` to `vacant` so it now rolls into the portfolio rollups
+  and Properties table instead of the separate Pending Acquisitions
+  section. Rate/term/amortization aren't on the draft statement and the
+  full closing package isn't on file yet — flagged in the backlog and in
+  the loan/property notes as pending Patrick.
+- **Forced password-change flow for new accounts**: added a
+  `must_change_password` flag on `users`, carried in the signed session JWT
+  and enforced by `proxy.ts` — a flagged account is redirected to a new
+  `/change-password` page (and its API route) until it sets its own
+  password, which re-issues the session token with the flag cleared.
+  `scripts/seed_user.mjs` now sets the flag by default (pass
+  `--no-must-change` when resetting your own password to something you're
+  keeping). No existing accounts were affected — the production `users`
+  table was actually empty at push time (0 rows), so this only matters for
+  accounts created going forward.
+- **Pushed all of the above to production this pass**: schema pushed via
+  `drizzle-kit push --config drizzle.config.turso.ts --force` (adds the new
+  column, additive/non-destructive); the 615 Cherry St property row, its
+  ownership-note cleanup, the new loan row, and the BLT Wildcat LLC entity
+  note were patched directly against the live Turso database with small
+  one-off scripts (not committed, per the usual convention of keeping ad
+  hoc production-patch scripts out of the tree) rather than by re-running
+  `seed.ts` against prod, since that would duplicate every row instead of
+  updating in place. Code pushed to GitHub `main`, which should trigger the
+  existing Vercel auto-deploy.
+- **Note on the temp password flow**: no account currently exists on the
+  production database at all (`users` table was empty), so nobody can
+  actually log in to the live app right now — worth flagging to Patrick
+  separately from this pass's changes.
 
 ## Twenty-second pass: closing docs/leases for 6 properties, Financial Summary tile redesign, two open blockers
 
