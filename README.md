@@ -1,3 +1,7 @@
+# RPM (Rental Property Management)
+
+RPM is Patrick's custom app for managing the BLT LLC family's rental property portfolio — property/LLC performance metrics, PM statement intake, maintenance/rehab history, leases, and loans. Live at https://blt-portfolio.vercel.app. See `HANDOFF.md` for the full history of what's built and what's still open.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

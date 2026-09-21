@@ -1,4 +1,7 @@
-// BLT Portfolio Manager — data model (Drizzle / SQLite)
+// RPM (Rental Property Management) — data model (Drizzle / SQLite)
+// App name "RPM" chosen by Patrick 2026-09-20; internally still tracks the
+// BLT LLC family's rental portfolio, so "BLT Portfolio" still shows up in
+// data/comments below as the subject matter, not the app's own name.
 //
 // Modeling notes:
 // - Patrick + Gina are modeled as ONE combined owner ("Bogan-Rhineberger

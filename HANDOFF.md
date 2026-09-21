@@ -1,4 +1,12 @@
-# BLT Portfolio Manager — handoff notes (updated 2026-09-20, twenty-third pass)
+# RPM (Rental Property Management) — handoff notes (updated 2026-09-20, twenty-third pass)
+
+> **App name**: Patrick named this app "RPM" (Rental Property Management)
+> 2026-09-20 — refer to it that way going forward. It's on the front page
+> header, the login page, and the browser tab title. Internally it's still
+> the same BLT LLC family rental portfolio ("BLT Portfolio" shows up in
+> data/comments as the subject matter, and the repo/Vercel project/domain
+> are still named `blt-portfolio` — only the app's own displayed name
+> changed, not the infra names).
 
 ## Twenty-third pass: 615 Cherry St closed, forced password-change flow, pushed to prod
 
@@ -60,6 +68,13 @@
   terms yet, flagged in the backlog. Pushed to prod the same way as the
   rest of this pass (targeted UPDATEs against the existing property/loan
   rows, not a reseed).
+- **Update, same pass**: app renamed to **RPM** (Rental Property
+  Management), per Patrick — see the note at the top of this file. Front
+  page header, login page, and browser tab title all updated; `seed.ts`'s
+  log line and `schema.ts`'s header comment updated too. Also seeded Gina's
+  account (`gina`, `must_change_password` on, temp password relayed to
+  Patrick to pass along) — same `scripts/seed_user.mjs` flow as Patrick's,
+  pushed directly to production.
 
 ## Twenty-second pass: closing docs/leases for 6 properties, Financial Summary tile redesign, two open blockers
 

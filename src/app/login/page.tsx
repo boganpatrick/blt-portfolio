@@ -37,8 +37,8 @@ export default function LoginPage() {
   return (
     <div style={styles.page}>
       <form onSubmit={handleSubmit} style={styles.card}>
-        <h1 style={styles.title}>BLT Portfolio Manager</h1>
-        <p style={styles.subtitle}>Sign in to continue</p>
+        <h1 style={styles.title}>RPM</h1>
+        <p style={styles.subtitle}>Rental Property Management · Sign in to continue</p>
 
         <label style={styles.label} htmlFor="username">
           Username
