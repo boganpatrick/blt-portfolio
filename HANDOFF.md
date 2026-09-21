@@ -75,6 +75,18 @@
   account (`gina`, `must_change_password` on, temp password relayed to
   Patrick to pass along) — same `scripts/seed_user.mjs` flow as Patrick's,
   pushed directly to production.
+- **Bug fix, same pass**: 615 Cherry St was showing as no-debt/full-equity
+  on the dashboard — caught by Patrick 2026-09-21. Cause: the loan row's
+  `current_balance` had been left null (only `original_amount`, $180,646,
+  was set), and the equity calc on the dashboard (`src/app/page.tsx`) reads
+  `loan.currentBalance`, not `originalAmount` — so a null balance was
+  silently treated as $0 debt. Fixed by setting `current_balance` to
+  $144,415 (the actual funded principal at closing — original_amount minus
+  the $36,231 undrawn construction holdback), per the ALTA settlement
+  statement. **Worth double-checking other loans on file for the same gap**
+  (a loan with `original_amount` set but no `current_balance` will read as
+  debt-free on the dashboard) — this was the only one this pass, but it's
+  an easy one to miss when entering a freshly-closed loan.
 
 ## Twenty-second pass: closing docs/leases for 6 properties, Financial Summary tile redesign, two open blockers
 

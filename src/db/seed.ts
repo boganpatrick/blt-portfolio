@@ -564,10 +564,15 @@ async function main() {
       originalAmount: 180646, originationDate: "2026-09-17",
       rate: 0.109, termMonths: 9,
       prepayPenaltyTerms: "None (per term sheet)",
-      // currentBalance left null pending the full closing HUD; the
-      // $180,646 above is the committed loan amount from the term sheet,
-      // not a confirmed funded balance.
-      notes: "Hard money purchase/rehab loan, per the signed Nation Loan Funding LLC term sheet (615_Cherry_Street-TermSheet-352758, 8/27/2026): 10.90% interest-only, 9-month term with a balloon payment at maturity — Patrick plans to rehab and refinance out before then. $180,646 total loan = $144,415 initial funding + $36,231 rehab/construction holdback (term sheet's own rehab budget estimate was $42,625; Patrick's current working estimate is $30k, not yet confirmed — see properties.rehabBudget). No prepayment penalty. Other loan costs per the term sheet: 2.75% origination points (~$4,968), $2,495 doc fee, ~$1,641/mo interest payment, ~$37,047 cash to close. Full closing HUD/final settlement statement not yet on file to confirm the term sheet's numbers against.",
+      // currentBalance = actual funded principal at closing: $144,415
+      // initial funding, NOT the $180,646 originalAmount, since that total
+      // includes the $36,231 rehab/construction holdback Patrick hasn't
+      // drawn (per the ALTA settlement statement and the term sheet).
+      // Previously left null, which made the dashboard's equity calc (which
+      // reads currentBalance, not originalAmount) treat this as a $0-debt,
+      // full-equity property — wrong, caught by Patrick 2026-09-21.
+      currentBalance: 144415, balanceAsOf: "2026-09-17",
+      notes: "Hard money purchase/rehab loan, per the signed Nation Loan Funding LLC term sheet (615_Cherry_Street-TermSheet-352758, 8/27/2026): 10.90% interest-only, 9-month term with a balloon payment at maturity — Patrick plans to rehab and refinance out before then. $180,646 total committed loan = $144,415 initial funding (= current_balance, the actual funded principal) + $36,231 rehab/construction holdback not yet drawn (term sheet's own rehab budget estimate was $42,625; Patrick's current working estimate is $30k, not yet confirmed — see properties.rehabBudget). If/when the holdback is drawn, current_balance should rise accordingly. No prepayment penalty. Other loan costs per the term sheet: 2.75% origination points (~$4,968), $2,495 doc fee, ~$1,641/mo interest payment, ~$37,047 cash to close. Full closing HUD/final settlement statement not yet on file to confirm the term sheet's numbers against.",
     },
     // Terms below are the ones we actually have on file so far — pulled from
     // the per-property tabs in BLT_Portfolio.xlsx (2026-08-31 pass). Only
